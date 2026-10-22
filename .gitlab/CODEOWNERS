@@ -1,0 +1,42 @@
+# Who approves changes to which files. See "Changing docs and making decisions" in CLAUDE.md.
+# Replace the placeholders with real GitLab groups or usernames.
+# Each section needs one approval from its owners, so a path listed in several
+# sections needs one approval per section.
+# Note: enforcing Code Owner approval needs GitLab Premium. On the Free tier,
+# owners are still shown on merge requests, and reviewers follow CLAUDE.md.
+
+[Frontend]
+/apps/                  @lam.tb @phamdinhhao
+/packages/              @lam.tb @phamdinhhao
+/docs/frontend.md       @lam.tb @phamdinhhao
+/docs/analytics.md      @lam.tb @phamdinhhao
+
+[Backend]
+/core/                  @locle @thienphuc
+/seeds/                 @locle @thienphuc
+/docs/backend.md        @locle @thienphuc
+
+[DevOps]
+/infra/                 @lam.tb @phamdinhhao @locle @thienphuc
+/.gitlab-ci.yml         @lam.tb @phamdinhhao @locle @thienphuc
+/docs/operations.md     @lam.tb @phamdinhhao @locle @thienphuc
+
+[Contract - frontend]
+/contracts/             @lam.tb @phamdinhhao
+
+[Contract - backend]
+/contracts/             @locle @thienphuc
+
+[Lead]
+/core/                  @hienpt
+/packages/              @hienpt
+/contracts/             @hienpt
+/CLAUDE.md              @hienpt
+/docs/product.md        @hienpt
+/docs/demo-plan.md      @hienpt
+/docs/glossary.md       @hienpt
+/docs/architecture.md   @hienpt
+/docs/core-boundaries.md @hienpt
+/docs/domain/           @hienpt
+/docs/api.md            @hienpt
+/docs/decisions.md      @hienpt
