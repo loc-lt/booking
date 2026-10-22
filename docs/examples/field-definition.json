@@ -1,0 +1,39 @@
+{
+  "resourceType": "meeting_room",
+  "version": 3,
+  "fields": [
+    {
+      "key": "capacity",
+      "label": "Capacity",
+      "type": "integer",
+      "required": true,
+      "validation": { "min": 1, "max": 200 }
+    },
+    {
+      "key": "floor",
+      "label": "Floor",
+      "type": "text",
+      "validation": { "maxLength": 3, "pattern": "^[0-9]{1,2}[A-Z]?$" },
+      "help": "e.g. 3 or 12B"
+    },
+    {
+      "key": "equipment",
+      "label": "Equipment",
+      "type": "multi_select",
+      "options": [
+        { "value": "tv", "label": "TV" },
+        { "value": "whiteboard", "label": "Whiteboard" },
+        { "value": "video_conf", "label": "Video conferencing" }
+      ],
+      "validation": { "maxItems": 3 }
+    }
+  ],
+  "rules": [
+    {
+      "id": "video_conf_capacity",
+      "message": "Rooms with video conferencing need a capacity of at least 4",
+      "when": { "in": ["video_conf", { "var": "equipment" }] },
+      "assert": { ">=": [{ "var": "capacity" }, 4] }
+    }
+  ]
+}
