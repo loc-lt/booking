@@ -1,0 +1,25 @@
+# Demo server on the internal network, reached by its IP address, e.g. http://10.0.0.5:3000
+# One port per app. Each port also forwards /api/* to the API, so the browser talks to a
+# single address per app: no cross-origin (CORS) setup, and API_URL can stay empty.
+# Plain HTTP for now: fine inside the office network. Switch to domain names with
+# automatic HTTPS before anyone reaches the server from outside.
+
+# Member app: http://<server-ip>:3000
+http://:3000 {
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+	handle {
+		reverse_proxy member:80
+	}
+}
+
+# Console: http://<server-ip>:3001
+http://:3001 {
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+	handle {
+		reverse_proxy console:80
+	}
+}
