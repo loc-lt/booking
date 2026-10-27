@@ -6,8 +6,8 @@
 # owners are still shown on merge requests, and reviewers follow CLAUDE.md.
 
 [Frontend]
-/apps/                  @lam.tb
-/packages/              @lam.tb
+/web/apps/              @lam.tb
+/web/packages/          @lam.tb
 /docs/frontend.md       @lam.tb
 /docs/analytics.md      @lam.tb
 
@@ -29,7 +29,7 @@
 
 [Lead]
 /core/                  @hienpt
-/packages/              @hienpt
+/web/packages/          @hienpt
 /contracts/             @hienpt
 /CLAUDE.md              @hienpt
 /docs/product.md        @hienpt

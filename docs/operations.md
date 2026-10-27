@@ -45,9 +45,9 @@ Defined in `.gitlab-ci.yml`.
 
 **On every merge request:**
 
-1. Lint and types: ruff; ESLint and `tsc`.
+1. Lint and types: ruff; Biome and `tsc`.
 2. Contract: Spectral lints `openapi.yaml`; the generated client must match what's committed.
-3. Boundaries: import-linter; ESLint import rules (apps use only package entry points, apps don't import each other, packages don't import apps); banned product words outside `seeds/`.
+3. Boundaries: import-linter; Biome import rules (apps use only package entry points, apps don't import each other, packages don't import apps); banned product words outside `seeds/`.
 4. Tests: backend against real PostgreSQL; frontend unit and component tests.
 5. API and seeds: Schemathesis against the running API; every seed tenant applies cleanly.
 6. All three images build.

@@ -1,0 +1,200 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "defaultBranch": "master",
+    "useIgnoreFile": true,
+    "root": "../"
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "apps/**",
+      "packages/**",
+      "*.ts",
+      "*.json",
+      "!apps/*/src/routeTree.gen.ts",
+      "!packages/api-client/src/generated",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/*.svg"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "attributePosition": "auto",
+    "bracketSameLine": false,
+    "delimiterSpacing": false,
+    "expand": "auto",
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineEnding": "lf",
+    "lineWidth": 100,
+    "useEditorconfig": false
+  },
+  "javascript": {
+    "assist": {
+      "enabled": true
+    },
+    "formatter": {
+      "enabled": true,
+      "arrowParentheses": "always",
+      "attributePosition": "auto",
+      "bracketSameLine": false,
+      "bracketSpacing": true,
+      "delimiterSpacing": false,
+      "expand": "auto",
+      "indentStyle": "tab",
+      "indentWidth": 2,
+      "jsxQuoteStyle": "single",
+      "lineEnding": "lf",
+      "lineWidth": 100,
+      "operatorLinebreak": "after",
+      "quoteProperties": "asNeeded",
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "trailingNewline": true
+    },
+    "linter": {
+      "enabled": true
+    },
+    "parser": {
+      "jsxEverywhere": true
+    }
+  },
+  "css": {
+    "assist": {
+      "enabled": true
+    },
+    "formatter": {
+      "enabled": true,
+      "delimiterSpacing": false,
+      "indentStyle": "tab",
+      "indentWidth": 2,
+      "lineEnding": "lf",
+      "lineWidth": 100,
+      "quoteStyle": "single",
+      "trailingNewline": true
+    },
+    "linter": {
+      "enabled": true
+    },
+    "parser": {
+      "cssModules": true,
+      "tailwindDirectives": true
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "a11y": {
+        "noStaticElementInteractions": "off",
+        "useSemanticElements": "off",
+        "useKeyWithClickEvents": "off"
+      },
+      "correctness": {
+        "noUnusedImports": {
+          "level": "error",
+          "fix": "safe"
+        }
+      },
+      "nursery": {
+        "useTailwindSortedClasses": {
+          "level": "info",
+          "fix": "safe"
+        }
+      },
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": ["@booking-core/*/src/*", "@booking-core/*/dist/*"],
+                "message": "Import a package through its index.ts entry point, not its internals."
+              },
+              {
+                "group": ["**/apps/*"],
+                "message": "Packages must not import from apps/."
+              },
+              {
+                "group": ["@/features/*/**"],
+                "message": "Import from the feature's barrel (@/features/<name>) instead of reaching into its internals."
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/ui/src/components/ui/**"],
+      "linter": {
+        "rules": {
+          "a11y": { "useSemanticElements": "off" },
+          "suspicious": {
+            "noArrayIndexKey": "off",
+            "noDocumentCookie": "off",
+            "noDoubleEquals": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["package.json", "*/package.json"],
+      "assist": {
+        "actions": {
+          "source": {
+            "useSortedPackageJson": "on"
+          }
+        }
+      }
+    }
+  ],
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "preset": "recommended",
+        "noDuplicateClasses": "on",
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [
+              { "kind": "!bare", "source": ":PACKAGE:" },
+              { "kind": "!bare", "source": ":ALIAS:" },
+              { "kind": "!bare", "source": ":PATH:" },
+              { "kind": "bare", "source": ":PACKAGE:" },
+              { "kind": "bare", "source": ":ALIAS:" },
+              { "kind": "bare", "source": ":PATH:" }
+            ],
+            "identifierOrder": "natural",
+            "sortBareImports": true
+          }
+        },
+        "useSortedAttributes": "off",
+        "useSortedEnumMembers": "off",
+        "useSortedInterfaceMembers": "off",
+        "useSortedKeys": "off",
+        "useSortedPackageJson": "off",
+        "useSortedProperties": "off",
+        "useSortedSelectionSet": "off",
+        "useSortedTypeFields": "off"
+      }
+    }
+  }
+}

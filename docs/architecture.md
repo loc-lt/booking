@@ -45,10 +45,11 @@ Later: **Payments** (plugs into the lifecycle's payment hook), files and media, 
 booking-core/
 ├── CLAUDE.md                 start here
 ├── core/api/                 Flask app: modules/, worker/, migrations/, tests/
-├── packages/                 shared frontend: api-client, ui, custom-fields, rules-editor, booking-ui, app-kit
-├── apps/
-│   ├── console/              operators: sites, resource types, fields, rules, flows, approvals
-│   └── member/               members: search, book, my bookings, check in, cancel
+├── web/                      pnpm workspace: shared packages and the two apps
+│   ├── packages/             shared frontend: api-client, ui, custom-fields, rules-editor, booking-ui, app-kit
+│   └── apps/
+│       ├── console/          operators: sites, resource types, fields, rules, flows, approvals
+│       └── member/           members: search, book, my bookings, check in, cancel
 ├── seeds/                    demo tenants as configuration data
 ├── contracts/openapi.yaml    the API contract
 ├── infra/                    Dockerfiles, Compose files, Caddyfile
@@ -60,7 +61,7 @@ booking-core/
 - **Two apps, like a real product:** every product has an operator console and a member app, used by different people on different domains. Two consumers also expose hidden coupling in the packages, and the member app never ships console code.
 - **The apps are treated like a product:** they use only package entry points and the public API. No demo-only endpoints. If they need something, it goes into a package or the API, where products get it too.
 - **Seeds are configuration, never code.**
-- **The console is not throwaway:** configuring types, fields, rules and flows is the same for every product, so its building blocks live in `packages/`.
+- **The console is not throwaway:** configuring types, fields, rules and flows is the same for every product, so its building blocks live in `web/packages/`.
 
 ## How products use the core
 

@@ -34,8 +34,8 @@ The demo runs on the reference apps. Its strongest moment: three seeded business
 
 | Role | People | Owns |
 | --- | --- | --- |
-| Lead | 1 | Reviews and decisions only, no product code: approves doc and decision-log changes; reviews `core/`, `packages/` and `contracts/`; sets sprint priorities and cuts; owns the demo script and communication with the boss |
-| Frontend | 1 | Shared packages, `apps/console` and `apps/member`, the API contract, mocks, the tracking plan; DevOps with Backend |
+| Lead | 1 | Reviews and decisions only, no product code: approves doc and decision-log changes; reviews `core/`, `web/packages/` and `contracts/`; sets sprint priorities and cuts; owns the demo script and communication with the boss |
+| Frontend | 1 | Shared packages, `web/apps/console` and `web/apps/member`, the API contract, mocks, the tracking plan; DevOps with Backend |
 | Backend | 3 | Core modules, worker, database and migrations, seeds; DevOps with Frontend |
 | AI | 1 | Rule engine with "explain why"; plain-language → rule |
 

@@ -18,14 +18,14 @@ These docs are the single source of truth. If code and docs disagree, the docs w
 | [docs/domain/configuration.md](docs/domain/configuration.md) | Versioned config, custom fields, type changes | Settings, custom fields |
 | [docs/domain/events.md](docs/domain/events.md) | Events and the outbox | Anything that reacts to changes |
 | [docs/api.md](docs/api.md) | API conventions, errors, contract workflow | Any endpoint |
-| [docs/frontend.md](docs/frontend.md) | Frontend stack, code rules, mocks, testing | `apps/`, `packages/` |
+| [docs/frontend.md](docs/frontend.md) | Frontend stack, code rules, mocks, testing | `web/apps/`, `web/packages/` |
 | [docs/backend.md](docs/backend.md) | Backend structure, data, tenancy, auth, engine, testing | `core/` |
 | [docs/analytics.md](docs/analytics.md) | What we measure, tracking plan | Screens and tracked events |
 | [docs/operations.md](docs/operations.md) | Environments, Docker, CI/CD, deploys, secrets | `infra/`, `.gitlab-ci.yml` |
 | [docs/decisions.md](docs/decisions.md) | Decision log | Before changing a convention |
 | [docs/examples/](docs/examples/) | Example payloads, SQL, product setup | When a doc points there |
 
-Folder-level `CLAUDE.md` files load the right guide automatically: `apps/` and `packages/` load the frontend guide, `core/` the backend guide, `contracts/` the API guide, `infra/` the operations guide.
+Folder-level `CLAUDE.md` files load the right guide automatically: `web/apps/` and `web/packages/` load the frontend guide, `core/` the backend guide, `contracts/` the API guide, `infra/` the operations guide.
 
 ## Rules for everyone, including agents
 
@@ -38,7 +38,7 @@ Folder-level `CLAUDE.md` files load the right guide automatically: `apps/` and `
 ### While working
 
 - Stay in scope. No drive-by refactors, renames or formatting in unrelated files.
-- Never edit generated code in `packages/api-client/src/generated/`. Change `contracts/openapi.yaml` and run `pnpm gen`.
+- Never edit generated code in `web/packages/api-client/src/generated/`. Change `contracts/openapi.yaml` and run `pnpm gen`.
 - Every new or changed endpoint, field or error code starts in the contract ([docs/api.md](docs/api.md)).
 - No product-specific code anywhere ([docs/core-boundaries.md](docs/core-boundaries.md)).
 - Apps use packages only through their entry points, and the core only through its public API.
@@ -59,7 +59,7 @@ Give a short summary: what changed, anything left undone or uncertain, and any d
 
 | Docs | Approved by |
 | --- | --- |
-| `docs/frontend.md`, `apps/CLAUDE.md`, `packages/CLAUDE.md` | One frontend engineer |
+| `docs/frontend.md`, `web/apps/CLAUDE.md`, `web/packages/CLAUDE.md` | One frontend engineer |
 | `docs/backend.md`, `core/CLAUDE.md` | One backend engineer |
 | `docs/operations.md`, `infra/CLAUDE.md` | One engineer working on DevOps |
 | `docs/analytics.md` | One frontend engineer; the lead too if a metric's definition changes |
@@ -74,7 +74,7 @@ Not in these docs: personal plans, secrets, task tracking (use the issue tracker
 
 - Short-lived branches into `master`, the default branch; `master` is always deployable and protected (no direct pushes).
 - One feature or fix per merge request; the pipeline must pass before merging.
-- Changes to `core/`, `packages/` and `contracts/` are also reviewed by the lead, within one working day. Other changes are reviewed by the other engineer in the same role.
+- Changes to `core/`, `web/packages/` and `contracts/` are also reviewed by the lead, within one working day. Other changes are reviewed by the other engineer in the same role.
 - Commit messages follow Conventional Commits: `feat(booking): add check-in action`, `fix(member): show denial reason`. Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `ci`.
 
 ### Definition of done

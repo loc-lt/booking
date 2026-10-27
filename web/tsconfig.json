@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/api-client" },
+    { "path": "packages/ui" },
+    { "path": "packages/custom-fields" },
+    { "path": "packages/rules-editor" },
+    { "path": "packages/booking-ui" },
+    { "path": "packages/app-kit" }
+  ]
+}
