@@ -6,15 +6,15 @@
 # owners are still shown on merge requests, and reviewers follow CLAUDE.md.
 
 [Frontend]
-/apps/                  @lam.tb @phamdinhhao
-/packages/              @lam.tb @phamdinhhao
-/docs/frontend.md       @lam.tb @phamdinhhao
-/docs/analytics.md      @lam.tb @phamdinhhao
+/apps/                  @lam.tb
+/packages/              @lam.tb
+/docs/frontend.md       @lam.tb
+/docs/analytics.md      @lam.tb
 
 [Backend]
-/core/                  @locle @thienphuc
-/seeds/                 @locle @thienphuc
-/docs/backend.md        @locle @thienphuc
+/core/                  @locle @thienphuc @phamdinhhao
+/seeds/                 @locle @thienphuc @phamdinhhao
+/docs/backend.md        @locle @thienphuc @phamdinhhao
 
 [DevOps]
 /infra/                 @lam.tb @phamdinhhao @locle @thienphuc
@@ -22,10 +22,10 @@
 /docs/operations.md     @lam.tb @phamdinhhao @locle @thienphuc
 
 [Contract - frontend]
-/contracts/             @lam.tb @phamdinhhao
+/contracts/             @lam.tb
 
 [Contract - backend]
-/contracts/             @locle @thienphuc
+/contracts/             @locle @thienphuc @phamdinhhao
 
 [Lead]
 /core/                  @hienpt
