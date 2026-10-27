@@ -59,6 +59,13 @@ contract:
     - pnpm gen
     - git diff --exit-code -- packages/api-client   # generated code must be committed
 
+docs_readme:
+  image: python:3.12-slim
+  stage: check
+  script:
+    - python3 scripts/merge-docs.py
+    - git diff --exit-code -- README.md   # docs/ changed without regenerating README.md
+
 banned_words:
   image: debian:bookworm-slim   # GNU grep, which supports \b
   stage: check
