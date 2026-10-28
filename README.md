@@ -116,8 +116,8 @@ The demo runs on the reference apps. Its strongest moment: three seeded business
 
 | Role | People | Owns |
 | --- | --- | --- |
-| Lead | 1 | Reviews and decisions only, no product code: approves doc and decision-log changes; reviews `core/`, `packages/` and `contracts/`; sets sprint priorities and cuts; owns the demo script and communication with the boss |
-| Frontend | 1 | Shared packages, `apps/console` and `apps/member`, the API contract, mocks, the tracking plan; DevOps with Backend |
+| Lead | 1 | Reviews and decisions only, no product code: approves doc and decision-log changes; reviews `core/`, `web/packages/` and `contracts/`; sets sprint priorities and cuts; owns the demo script and communication with the boss |
+| Frontend | 1 | Shared packages, `web/apps/console` and `web/apps/member`, the API contract, mocks, the tracking plan; DevOps with Backend |
 | Backend | 3 | Core modules, worker, database and migrations, seeds; DevOps with Frontend |
 | AI | 1 | Rule engine with "explain why"; plain-language → rule |
 
@@ -169,7 +169,7 @@ Frontend and Backend engineers split work by feature each sprint rather than own
 | **Config version** | One saved version of a tenant's settings or rules. Bookings remember the version they were made under. |
 | **Preset** | A bundle of configuration that sets up a product for a new tenant in one click. |
 | **Product / vertical** | A product built on the core (co-working, workplace). Lives in its own repo, never in this one. |
-| **Reference apps** | `apps/console` (operators configure the core) and `apps/member` (members book): two apps in this repo that demonstrate and test the core. |
+| **Reference apps** | `web/apps/console` (operators configure the core) and `web/apps/member` (members book): two apps in this repo that demonstrate and test the core. |
 | **Seed** | A demo tenant defined as configuration data in `seeds/`, applied through the public API. |
 | **Contract** | `contracts/openapi.yaml`, the API description both sides follow. |
 | **Mock mode** | A frontend app running against generated mock APIs instead of the real backend. |
@@ -226,10 +226,11 @@ Later: **Payments** (plugs into the lifecycle's payment hook), files and media, 
 booking-core/
 ├── CLAUDE.md                 start here
 ├── core/api/                 Flask app: modules/, worker/, migrations/, tests/
-├── packages/                 shared frontend: api-client, ui, custom-fields, rules-editor, booking-ui, app-kit
-├── apps/
-│   ├── console/              operators: sites, resource types, fields, rules, flows, approvals
-│   └── member/               members: search, book, my bookings, check in, cancel
+├── web/                      pnpm workspace: shared packages and the two apps
+│   ├── packages/             shared frontend: api-client, ui, custom-fields, rules-editor, booking-ui, app-kit
+│   └── apps/
+│       ├── console/          operators: sites, resource types, fields, rules, flows, approvals
+│       └── member/           members: search, book, my bookings, check in, cancel
 ├── seeds/                    demo tenants as configuration data
 ├── contracts/openapi.yaml    the API contract
 ├── infra/                    Dockerfiles, Compose files, Caddyfile
@@ -241,7 +242,7 @@ booking-core/
 - **Two apps, like a real product:** every product has an operator console and a member app, used by different people on different domains. Two consumers also expose hidden coupling in the packages, and the member app never ships console code.
 - **The apps are treated like a product:** they use only package entry points and the public API. No demo-only endpoints. If they need something, it goes into a package or the API, where products get it too.
 - **Seeds are configuration, never code.**
-- **The console is not throwaway:** configuring types, fields, rules and flows is the same for every product, so its building blocks live in `packages/`.
+- **The console is not throwaway:** configuring types, fields, rules and flows is the same for every product, so its building blocks live in `web/packages/`.
 
 ### How products use the core
 
@@ -600,7 +601,7 @@ Contracts go over one feature at a time, weekly at the latest. Backend starts in
 
 ## Frontend guide
 
-For anyone working in `apps/` or `packages/`. Shared rules live in the root [CLAUDE.md](CLAUDE.md); API rules in [api.md](#api); tracking in [analytics.md](#analytics-and-tracking).
+For anyone working in `web/apps/` or `web/packages/`. Shared rules live in the root [CLAUDE.md](CLAUDE.md); API rules in [api.md](#api); tracking in [analytics.md](#analytics-and-tracking).
 
 ### Stack
 
@@ -626,12 +627,12 @@ Zod can't describe fields that only exist in a tenant's configuration. Ajv valid
 
 ### Code organisation
 
-- **pnpm workspace:** `apps/console` and `apps/member` depend on `@booking-core/*` packages via `workspace:*`.
+- **pnpm workspace:** rooted at `web/`; `apps/console` and `apps/member` depend on `@booking-core/*` packages via `workspace:*`.
 - **Packages from day one:** `api-client`, `ui`, `custom-fields`, `rules-editor`, `booking-ui`, `app-kit`. Anything else starts in an app and moves to a package when a second consumer needs it.
 - **No imports between apps.** If both apps need something, it moves to a package.
-- **Each package exports through its `index.ts`.** Nothing imports another package's internals; packages never import from `apps/`.
+- **Each package exports through its `index.ts`.** Nothing imports another package's internals; packages never import from `web/apps/`.
 - **Inside an app:** one folder per feature under `src/features/<feature>/`, with its components, hooks and tests together.
-- **shadcn/ui components** live in `packages/ui`, are added with its CLI, and may be edited.
+- **shadcn/ui components** live in `web/packages/ui`, are added with its CLI, and may be edited.
 
 #### Rules for packages
 
@@ -659,12 +660,12 @@ Every app starts through `app-kit`. It reads the runtime config, creates the que
 
 1. Edit `contracts/openapi.yaml` while building the screen.
 2. Run `pnpm gen`: Orval regenerates hooks, Zod schemas and MSW mocks. Generated code is committed.
-3. Add scenario handlers in `packages/api-client/src/scenarios/` where behaviour matters: `SLOT_TAKEN`, `BOOKING_DENIED` with reasons, slow responses.
+3. Add scenario handlers in `web/packages/api-client/src/scenarios/` where behaviour matters: `SLOT_TAKEN`, `BOOKING_DENIED` with reasons, slow responses.
 4. Switch each feature from `mock` to `real` with the runtime `apiMode` setting and its per-feature overrides as the backend lands.
 
 ### Running locally
 
-Run `pnpm --filter console dev` and `pnpm --filter member dev` natively, side by side, against the API, worker and database in Docker Compose. Node is pinned in `.nvmrc`, pnpm in `package.json`. Images and runtime config: [operations.md](#operations).
+From `web/`, run `pnpm --filter console dev` and `pnpm --filter member dev` natively, side by side, against the API, worker and database in Docker Compose. Node is pinned in `web/.nvmrc`, pnpm in `web/package.json`. Images and runtime config: [operations.md](#operations).
 
 Environment values are read at runtime from `window.__CONFIG__`, never from `import.meta.env`, so one image runs everywhere.
 
@@ -901,9 +902,9 @@ Defined in `.gitlab-ci.yml`.
 
 **On every merge request:**
 
-1. Lint and types: ruff; ESLint and `tsc`.
+1. Lint and types: ruff; Biome and `tsc`.
 2. Contract: Spectral lints `openapi.yaml`; the generated client must match what's committed.
-3. Boundaries: import-linter; ESLint import rules (apps use only package entry points, apps don't import each other, packages don't import apps); banned product words outside `seeds/`.
+3. Boundaries: import-linter; Biome import rules (apps use only package entry points, apps don't import each other, packages don't import apps); banned product words outside `seeds/`.
 4. Tests: backend against real PostgreSQL; frontend unit and component tests.
 5. API and seeds: Schemathesis against the running API; every seed tenant applies cleanly.
 6. All three images build.

@@ -18,7 +18,7 @@
 | **Config version** | One saved version of a tenant's settings or rules. Bookings remember the version they were made under. |
 | **Preset** | A bundle of configuration that sets up a product for a new tenant in one click. |
 | **Product / vertical** | A product built on the core (co-working, workplace). Lives in its own repo, never in this one. |
-| **Reference apps** | `apps/console` (operators configure the core) and `apps/member` (members book): two apps in this repo that demonstrate and test the core. |
+| **Reference apps** | `web/apps/console` (operators configure the core) and `web/apps/member` (members book): two apps in this repo that demonstrate and test the core. |
 | **Seed** | A demo tenant defined as configuration data in `seeds/`, applied through the public API. |
 | **Contract** | `contracts/openapi.yaml`, the API description both sides follow. |
 | **Mock mode** | A frontend app running against generated mock APIs instead of the real backend. |

@@ -8,6 +8,7 @@ ARG APP
 WORKDIR /repo
 RUN corepack enable
 COPY . .
+WORKDIR /repo/web
 RUN pnpm install --frozen-lockfile
 RUN pnpm --filter "${APP}..." build
 
@@ -16,4 +17,4 @@ ARG APP
 ENV APP_NAME=${APP}
 COPY infra/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --chmod=755 infra/web/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
-COPY --from=build /repo/apps/${APP}/dist /usr/share/nginx/html
+COPY --from=build /repo/web/apps/${APP}/dist /usr/share/nginx/html

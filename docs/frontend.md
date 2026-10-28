@@ -1,6 +1,6 @@
 # Frontend guide
 
-For anyone working in `apps/` or `packages/`. Shared rules live in the root [CLAUDE.md](../CLAUDE.md); API rules in [api.md](api.md); tracking in [analytics.md](analytics.md).
+For anyone working in `web/apps/` or `web/packages/`. Shared rules live in the root [CLAUDE.md](../CLAUDE.md); API rules in [api.md](api.md); tracking in [analytics.md](analytics.md).
 
 ## Stack
 
@@ -26,12 +26,12 @@ Zod can't describe fields that only exist in a tenant's configuration. Ajv valid
 
 ## Code organisation
 
-- **pnpm workspace:** `apps/console` and `apps/member` depend on `@booking-core/*` packages via `workspace:*`.
+- **pnpm workspace:** rooted at `web/`; `apps/console` and `apps/member` depend on `@booking-core/*` packages via `workspace:*`.
 - **Packages from day one:** `api-client`, `ui`, `custom-fields`, `rules-editor`, `booking-ui`, `app-kit`. Anything else starts in an app and moves to a package when a second consumer needs it.
 - **No imports between apps.** If both apps need something, it moves to a package.
-- **Each package exports through its `index.ts`.** Nothing imports another package's internals; packages never import from `apps/`.
+- **Each package exports through its `index.ts`.** Nothing imports another package's internals; packages never import from `web/apps/`.
 - **Inside an app:** one folder per feature under `src/features/<feature>/`, with its components, hooks and tests together.
-- **shadcn/ui components** live in `packages/ui`, are added with its CLI, and may be edited.
+- **shadcn/ui components** live in `web/packages/ui`, are added with its CLI, and may be edited.
 
 ### Rules for packages
 
@@ -59,12 +59,12 @@ Every app starts through `app-kit`. It reads the runtime config, creates the que
 
 1. Edit `contracts/openapi.yaml` while building the screen.
 2. Run `pnpm gen`: Orval regenerates hooks, Zod schemas and MSW mocks. Generated code is committed.
-3. Add scenario handlers in `packages/api-client/src/scenarios/` where behaviour matters: `SLOT_TAKEN`, `BOOKING_DENIED` with reasons, slow responses.
+3. Add scenario handlers in `web/packages/api-client/src/scenarios/` where behaviour matters: `SLOT_TAKEN`, `BOOKING_DENIED` with reasons, slow responses.
 4. Switch each feature from `mock` to `real` with the runtime `apiMode` setting and its per-feature overrides as the backend lands.
 
 ## Running locally
 
-Run `pnpm --filter console dev` and `pnpm --filter member dev` natively, side by side, against the API, worker and database in Docker Compose. Node is pinned in `.nvmrc`, pnpm in `package.json`. Images and runtime config: [operations.md](operations.md).
+From `web/`, run `pnpm --filter console dev` and `pnpm --filter member dev` natively, side by side, against the API, worker and database in Docker Compose. Node is pinned in `web/.nvmrc`, pnpm in `web/package.json`. Images and runtime config: [operations.md](operations.md).
 
 Environment values are read at runtime from `window.__CONFIG__`, never from `import.meta.env`, so one image runs everywhere.
 
