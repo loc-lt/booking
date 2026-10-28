@@ -6,6 +6,8 @@
     { "path": "packages/custom-fields" },
     { "path": "packages/rules-editor" },
     { "path": "packages/booking-ui" },
-    { "path": "packages/app-kit" }
+    { "path": "packages/app-kit" },
+    { "path": "apps/console" },
+    { "path": "apps/member" }
   ]
 }
