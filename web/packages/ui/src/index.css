@@ -2,6 +2,17 @@
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
 
+/*
+ * Apps consume these packages as built `dist/` output, which is gitignored —
+ * and Tailwind's automatic source detection skips gitignored paths. Scan the
+ * source instead, since it has the same class names.
+ */
+@source './components/**/*.{ts,tsx}';
+@source '../../custom-fields/src/**/*.{ts,tsx}';
+@source '../../app-kit/src/**/*.{ts,tsx}';
+@source '../../booking-ui/src/**/*.{ts,tsx}';
+@source '../../rules-editor/src/**/*.{ts,tsx}';
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

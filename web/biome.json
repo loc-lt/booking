@@ -15,6 +15,7 @@
       "*.ts",
       "*.json",
       "!apps/*/src/routeTree.gen.ts",
+      "!apps/*/public/mockServiceWorker.js",
       "!packages/api-client/src/generated",
       "!**/dist",
       "!**/node_modules",
@@ -145,7 +146,7 @@
       "includes": ["packages/ui/src/components/ui/**"],
       "linter": {
         "rules": {
-          "a11y": { "useSemanticElements": "off" },
+          "a11y": { "useSemanticElements": "off", "noLabelWithoutControl": "off" },
           "suspicious": {
             "noArrayIndexKey": "off",
             "noDocumentCookie": "off",
