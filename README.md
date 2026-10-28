@@ -458,7 +458,7 @@ We keep our own definition format because the console needs labels, order, help 
 | text, long_text | string | required, minLength, maxLength, pattern |
 | integer, number | number | required, min, max, multipleOf |
 | boolean | boolean | required |
-| date, datetime | ISO string | required, min, max |
+| date, datetime | ISO string | required |
 | select | string | required, options |
 | multi_select | array | required, options, minItems, maxItems |
 | email, url, phone | string | required |
@@ -847,6 +847,7 @@ We build product and UX analytics first, to answer the boss's questions: how man
 | `booking.confirmed` (server) | Lifecycle confirms | path, minutesSinceSearch | Member booking |
 | `booking.denied` (server) | A rule blocks | ruleIds | What blocks them |
 | `resource_type_created` | Admin saves a type | fieldCount | Tenant setup |
+| `resource_created` | Admin adds a resource to a type | resourceTypeId | Tenant setup |
 | `rule_published` | Admin publishes a rule | stage, effect, previewUsed | Rule change |
 | `survey_answered` | Member answers the post-booking survey | score | Do they like it |
 

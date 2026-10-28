@@ -32,7 +32,7 @@ We keep our own definition format because the console needs labels, order, help 
 | text, long_text | string | required, minLength, maxLength, pattern |
 | integer, number | number | required, min, max, multipleOf |
 | boolean | boolean | required |
-| date, datetime | ISO string | required, min, max |
+| date, datetime | ISO string | required |
 | select | string | required, options |
 | multi_select | array | required, options, minItems, maxItems |
 | email, url, phone | string | required |
