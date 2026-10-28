@@ -32,6 +32,11 @@ function seedResourceTypes(): ResourceType[] {
 					required: true,
 				},
 			],
+			flowConfig: {
+				confirmation: 'instant',
+				checkIn: { required: true, opensMinutesBefore: 15, noShowAfterMinutes: 15 },
+				cancellation: { allowedUntilMinutesBefore: 60 },
+			},
 			createdAt: '2026-10-28T09:00:00+07:00',
 			updatedAt: '2026-10-28T09:00:00+07:00',
 		},
@@ -122,6 +127,7 @@ export const resourceTypesScenarioHandlers = [
 			label: body.label,
 			version: 1,
 			fields: body.fields ?? [],
+			flowConfig: body.flowConfig,
 			createdAt: now,
 			updatedAt: now,
 		};

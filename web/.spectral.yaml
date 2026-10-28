@@ -32,7 +32,7 @@ rules:
   booking-core-error-has-code:
     description: Every problem-details response exposes a stable `code` (docs/api.md).
     severity: error
-    given: $.components.schemas[?(@.properties && @.properties.status)]
+    given: $.components.schemas[?(@.properties && @.properties.status && @.properties.type && @.properties.title)]
     then:
       field: properties.code
       function: truthy

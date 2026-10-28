@@ -8,6 +8,7 @@
  */
 import type { Uuid } from "./uuid";
 import type { FieldDefinition } from "./fieldDefinition";
+import type { FlowConfig } from "./flowConfig";
 
 export interface ResourceType {
   id: Uuid;
@@ -17,6 +18,7 @@ export interface ResourceType {
   /** Config version this resource type is on. */
   version: number;
   fields: FieldDefinition[];
+  flowConfig: FlowConfig;
   createdAt: string;
   updatedAt: string;
 }

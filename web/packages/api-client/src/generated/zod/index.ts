@@ -104,6 +104,33 @@ export const listResourceTypesResponse = zod.object({
             ),
         }),
       ),
+      flowConfig: zod
+        .object({
+          confirmation: zod.enum(["instant", "approval"]),
+          checkIn: zod.object({
+            required: zod.boolean(),
+            opensMinutesBefore: zod
+              .number()
+              .describe(
+                "Check-in opens this many minutes before the booking starts.",
+              ),
+            noShowAfterMinutes: zod
+              .number()
+              .describe(
+                "Minutes after the start with no check-in before the booking is marked no_show.",
+              ),
+          }),
+          cancellation: zod.object({
+            allowedUntilMinutesBefore: zod
+              .number()
+              .describe(
+                "Cancellation is allowed up to this many minutes before the booking starts.",
+              ),
+          }),
+        })
+        .describe(
+          "The resource type's booking policies. Example: docs\/examples\/flow-config.json. Payment is a later addition.\n",
+        ),
       createdAt: zod.string().datetime({}),
       updatedAt: zod.string().datetime({}),
     }),
@@ -190,6 +217,33 @@ export const createResourceTypeBody = zod.object({
       }),
     )
     .default(createResourceTypeBodyFieldsDefault),
+  flowConfig: zod
+    .object({
+      confirmation: zod.enum(["instant", "approval"]),
+      checkIn: zod.object({
+        required: zod.boolean(),
+        opensMinutesBefore: zod
+          .number()
+          .describe(
+            "Check-in opens this many minutes before the booking starts.",
+          ),
+        noShowAfterMinutes: zod
+          .number()
+          .describe(
+            "Minutes after the start with no check-in before the booking is marked no_show.",
+          ),
+      }),
+      cancellation: zod.object({
+        allowedUntilMinutesBefore: zod
+          .number()
+          .describe(
+            "Cancellation is allowed up to this many minutes before the booking starts.",
+          ),
+      }),
+    })
+    .describe(
+      "The resource type's booking policies. Example: docs\/examples\/flow-config.json. Payment is a later addition.\n",
+    ),
 });
 
 /**
@@ -274,6 +328,33 @@ export const getResourceTypeResponse = zod.object({
         .describe("Only the properties relevant to the field's type are set."),
     }),
   ),
+  flowConfig: zod
+    .object({
+      confirmation: zod.enum(["instant", "approval"]),
+      checkIn: zod.object({
+        required: zod.boolean(),
+        opensMinutesBefore: zod
+          .number()
+          .describe(
+            "Check-in opens this many minutes before the booking starts.",
+          ),
+        noShowAfterMinutes: zod
+          .number()
+          .describe(
+            "Minutes after the start with no check-in before the booking is marked no_show.",
+          ),
+      }),
+      cancellation: zod.object({
+        allowedUntilMinutesBefore: zod
+          .number()
+          .describe(
+            "Cancellation is allowed up to this many minutes before the booking starts.",
+          ),
+      }),
+    })
+    .describe(
+      "The resource type's booking policies. Example: docs\/examples\/flow-config.json. Payment is a later addition.\n",
+    ),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
@@ -379,6 +460,778 @@ export const getResourceResponse = zod.object({
   customFieldValues: zod
     .record(zod.string(), zod.unknown())
     .describe("Keyed by the resource type's field keys."),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * Returns the day's slots for a resource type at a site, each with the resources still free for it. Applies hours, blackouts, slot size and buffers from the resource type's configuration.
+
+ * @summary Search free slots
+ */
+export const searchAvailabilityQueryParams = zod.object({
+  siteId: zod.string().uuid(),
+  resourceTypeId: zod.string().uuid(),
+  date: zod.string().date().describe("The site-local calendar day to search."),
+  resourceId: zod
+    .string()
+    .uuid()
+    .optional()
+    .describe("Only report free\/busy for this one resource."),
+});
+
+export const searchAvailabilityHeader = zod.object({
+  "X-Tenant-Id": zod
+    .string()
+    .uuid()
+    .describe(
+      "The tenant to act on behalf of, checked against the caller's memberships.",
+    ),
+});
+
+export const searchAvailabilityResponse = zod.object({
+  siteId: zod.string().uuid().describe("UUIDv7 string."),
+  resourceTypeId: zod.string().uuid().describe("UUIDv7 string."),
+  date: zod.string().date(),
+  slotMinutes: zod
+    .number()
+    .describe("Size of each slot, from the resource type's configuration."),
+  slots: zod.array(
+    zod.object({
+      start: zod.string().datetime({}),
+      end: zod.string().datetime({}),
+      resourceIds: zod
+        .array(zod.string().uuid().describe("UUIDv7 string."))
+        .describe(
+          "Resources of the searched type still free for this whole slot.",
+        ),
+    }),
+  ),
+});
+
+/**
+ * Lists the tenant's bookings, newest first, optionally filtered.
+ * @summary List bookings
+ */
+export const listBookingsQueryLimitDefault = 50;
+export const listBookingsQueryLimitMax = 100;
+
+export const listBookingsQueryParams = zod.object({
+  limit: zod
+    .number()
+    .min(1)
+    .max(listBookingsQueryLimitMax)
+    .default(listBookingsQueryLimitDefault),
+  cursor: zod.string().optional(),
+  resourceId: zod.string().uuid().optional(),
+  resourceTypeId: zod.string().uuid().optional(),
+  siteId: zod.string().uuid().optional(),
+  memberId: zod.string().uuid().optional(),
+  status: zod
+    .enum([
+      "awaiting_payment",
+      "pending_approval",
+      "confirmed",
+      "checked_in",
+      "completed",
+      "expired",
+      "rejected",
+      "cancelled",
+      "no_show",
+    ])
+    .optional()
+    .describe("Only bookings in this status."),
+  from: zod
+    .string()
+    .datetime({})
+    .optional()
+    .describe("Only bookings overlapping this range (inclusive)."),
+  to: zod.string().datetime({}).optional(),
+});
+
+export const listBookingsHeader = zod.object({
+  "X-Tenant-Id": zod
+    .string()
+    .uuid()
+    .describe(
+      "The tenant to act on behalf of, checked against the caller's memberships.",
+    ),
+});
+
+export const listBookingsResponse = zod.object({
+  data: zod.array(
+    zod.object({
+      id: zod.string().uuid().describe("UUIDv7 string."),
+      resourceId: zod.string().uuid().describe("UUIDv7 string."),
+      resourceTypeId: zod.string().uuid().describe("UUIDv7 string."),
+      siteId: zod.string().uuid().describe("UUIDv7 string."),
+      memberId: zod.string().uuid().describe("UUIDv7 string."),
+      start: zod.string().datetime({}),
+      end: zod.string().datetime({}),
+      status: zod.enum([
+        "awaiting_payment",
+        "pending_approval",
+        "confirmed",
+        "checked_in",
+        "completed",
+        "expired",
+        "rejected",
+        "cancelled",
+        "no_show",
+      ]),
+      customFieldValues: zod.record(zod.string(), zod.unknown()),
+      appliedConfig: zod
+        .object({
+          flowConfigVersion: zod.number(),
+          ruleSetVersion: zod.number(),
+          confirmation: zod.enum(["instant", "approval"]),
+          checkIn: zod.object({
+            required: zod.boolean(),
+            opensMinutesBefore: zod
+              .number()
+              .describe(
+                "Check-in opens this many minutes before the booking starts.",
+              ),
+            noShowAfterMinutes: zod
+              .number()
+              .describe(
+                "Minutes after the start with no check-in before the booking is marked no_show.",
+              ),
+          }),
+          cancellation: zod.object({
+            allowedUntilMinutesBefore: zod
+              .number()
+              .describe(
+                "Cancellation is allowed up to this many minutes before the booking starts.",
+              ),
+          }),
+        })
+        .describe(
+          "The resource type's policies at the moment this booking was made. Changing settings later never changes this.",
+        ),
+      history: zod.array(
+        zod.object({
+          fromStatus: zod
+            .enum([
+              "awaiting_payment",
+              "pending_approval",
+              "confirmed",
+              "checked_in",
+              "completed",
+              "expired",
+              "rejected",
+              "cancelled",
+              "no_show",
+            ])
+            .optional()
+            .describe(
+              "Absent for the first entry, written when the booking was submitted.",
+            ),
+          toStatus: zod.enum([
+            "awaiting_payment",
+            "pending_approval",
+            "confirmed",
+            "checked_in",
+            "completed",
+            "expired",
+            "rejected",
+            "cancelled",
+            "no_show",
+          ]),
+          occurredAt: zod.string().datetime({}),
+          actor: zod
+            .object({
+              type: zod.enum(["user", "system"]),
+              id: zod.string().uuid().optional().describe("UUIDv7 string."),
+            })
+            .describe("Who or what triggered a history entry."),
+        }),
+      ),
+      createdAt: zod.string().datetime({}),
+      updatedAt: zod.string().datetime({}),
+    }),
+  ),
+  nextCursor: zod.string().nullable(),
+});
+
+/**
+ * Runs the request through the booking pipeline (docs/domain/booking.md). Denied requests save nothing and return `BOOKING_DENIED` with the rules that blocked it.
+
+ * @summary Submit a booking request
+ */
+export const createBookingHeader = zod.object({
+  "X-Tenant-Id": zod
+    .string()
+    .uuid()
+    .describe(
+      "The tenant to act on behalf of, checked against the caller's memberships.",
+    ),
+  "Idempotency-Key": zod
+    .string()
+    .describe(
+      "Replaying the same key returns the original result instead of creating a second booking.",
+    ),
+});
+
+export const createBookingBodyCustomFieldValuesDefault = {};
+
+export const createBookingBody = zod.object({
+  resourceId: zod.string().uuid().describe("UUIDv7 string."),
+  memberId: zod
+    .string()
+    .uuid()
+    .describe("UUIDv7 string.")
+    .optional()
+    .describe(
+      "Defaults to the authenticated user; set to book on behalf of another member.",
+    ),
+  start: zod.string().datetime({}),
+  end: zod.string().datetime({}),
+  customFieldValues: zod
+    .record(zod.string(), zod.unknown())
+    .default(createBookingBodyCustomFieldValuesDefault),
+});
+
+/**
+ * Returns one booking by id, including the config it was made under and its status history.
+ * @summary Get a booking
+ */
+export const getBookingParams = zod.object({
+  bookingId: zod.string().uuid(),
+});
+
+export const getBookingHeader = zod.object({
+  "X-Tenant-Id": zod
+    .string()
+    .uuid()
+    .describe(
+      "The tenant to act on behalf of, checked against the caller's memberships.",
+    ),
+});
+
+export const getBookingResponse = zod.object({
+  id: zod.string().uuid().describe("UUIDv7 string."),
+  resourceId: zod.string().uuid().describe("UUIDv7 string."),
+  resourceTypeId: zod.string().uuid().describe("UUIDv7 string."),
+  siteId: zod.string().uuid().describe("UUIDv7 string."),
+  memberId: zod.string().uuid().describe("UUIDv7 string."),
+  start: zod.string().datetime({}),
+  end: zod.string().datetime({}),
+  status: zod.enum([
+    "awaiting_payment",
+    "pending_approval",
+    "confirmed",
+    "checked_in",
+    "completed",
+    "expired",
+    "rejected",
+    "cancelled",
+    "no_show",
+  ]),
+  customFieldValues: zod.record(zod.string(), zod.unknown()),
+  appliedConfig: zod
+    .object({
+      flowConfigVersion: zod.number(),
+      ruleSetVersion: zod.number(),
+      confirmation: zod.enum(["instant", "approval"]),
+      checkIn: zod.object({
+        required: zod.boolean(),
+        opensMinutesBefore: zod
+          .number()
+          .describe(
+            "Check-in opens this many minutes before the booking starts.",
+          ),
+        noShowAfterMinutes: zod
+          .number()
+          .describe(
+            "Minutes after the start with no check-in before the booking is marked no_show.",
+          ),
+      }),
+      cancellation: zod.object({
+        allowedUntilMinutesBefore: zod
+          .number()
+          .describe(
+            "Cancellation is allowed up to this many minutes before the booking starts.",
+          ),
+      }),
+    })
+    .describe(
+      "The resource type's policies at the moment this booking was made. Changing settings later never changes this.",
+    ),
+  history: zod.array(
+    zod.object({
+      fromStatus: zod
+        .enum([
+          "awaiting_payment",
+          "pending_approval",
+          "confirmed",
+          "checked_in",
+          "completed",
+          "expired",
+          "rejected",
+          "cancelled",
+          "no_show",
+        ])
+        .optional()
+        .describe(
+          "Absent for the first entry, written when the booking was submitted.",
+        ),
+      toStatus: zod.enum([
+        "awaiting_payment",
+        "pending_approval",
+        "confirmed",
+        "checked_in",
+        "completed",
+        "expired",
+        "rejected",
+        "cancelled",
+        "no_show",
+      ]),
+      occurredAt: zod.string().datetime({}),
+      actor: zod
+        .object({
+          type: zod.enum(["user", "system"]),
+          id: zod.string().uuid().optional().describe("UUIDv7 string."),
+        })
+        .describe("Who or what triggered a history entry."),
+    }),
+  ),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * Moves a confirmed booking to checked_in. Only inside the resource type's check-in window.
+ * @summary Check in
+ */
+export const checkInBookingParams = zod.object({
+  bookingId: zod.string().uuid(),
+});
+
+export const checkInBookingHeader = zod.object({
+  "X-Tenant-Id": zod
+    .string()
+    .uuid()
+    .describe(
+      "The tenant to act on behalf of, checked against the caller's memberships.",
+    ),
+});
+
+export const checkInBookingResponse = zod.object({
+  id: zod.string().uuid().describe("UUIDv7 string."),
+  resourceId: zod.string().uuid().describe("UUIDv7 string."),
+  resourceTypeId: zod.string().uuid().describe("UUIDv7 string."),
+  siteId: zod.string().uuid().describe("UUIDv7 string."),
+  memberId: zod.string().uuid().describe("UUIDv7 string."),
+  start: zod.string().datetime({}),
+  end: zod.string().datetime({}),
+  status: zod.enum([
+    "awaiting_payment",
+    "pending_approval",
+    "confirmed",
+    "checked_in",
+    "completed",
+    "expired",
+    "rejected",
+    "cancelled",
+    "no_show",
+  ]),
+  customFieldValues: zod.record(zod.string(), zod.unknown()),
+  appliedConfig: zod
+    .object({
+      flowConfigVersion: zod.number(),
+      ruleSetVersion: zod.number(),
+      confirmation: zod.enum(["instant", "approval"]),
+      checkIn: zod.object({
+        required: zod.boolean(),
+        opensMinutesBefore: zod
+          .number()
+          .describe(
+            "Check-in opens this many minutes before the booking starts.",
+          ),
+        noShowAfterMinutes: zod
+          .number()
+          .describe(
+            "Minutes after the start with no check-in before the booking is marked no_show.",
+          ),
+      }),
+      cancellation: zod.object({
+        allowedUntilMinutesBefore: zod
+          .number()
+          .describe(
+            "Cancellation is allowed up to this many minutes before the booking starts.",
+          ),
+      }),
+    })
+    .describe(
+      "The resource type's policies at the moment this booking was made. Changing settings later never changes this.",
+    ),
+  history: zod.array(
+    zod.object({
+      fromStatus: zod
+        .enum([
+          "awaiting_payment",
+          "pending_approval",
+          "confirmed",
+          "checked_in",
+          "completed",
+          "expired",
+          "rejected",
+          "cancelled",
+          "no_show",
+        ])
+        .optional()
+        .describe(
+          "Absent for the first entry, written when the booking was submitted.",
+        ),
+      toStatus: zod.enum([
+        "awaiting_payment",
+        "pending_approval",
+        "confirmed",
+        "checked_in",
+        "completed",
+        "expired",
+        "rejected",
+        "cancelled",
+        "no_show",
+      ]),
+      occurredAt: zod.string().datetime({}),
+      actor: zod
+        .object({
+          type: zod.enum(["user", "system"]),
+          id: zod.string().uuid().optional().describe("UUIDv7 string."),
+        })
+        .describe("Who or what triggered a history entry."),
+    }),
+  ),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * Moves an awaiting_payment, pending_approval or confirmed booking to cancelled. Runs the cancellation policy.
+ * @summary Cancel
+ */
+export const cancelBookingParams = zod.object({
+  bookingId: zod.string().uuid(),
+});
+
+export const cancelBookingHeader = zod.object({
+  "X-Tenant-Id": zod
+    .string()
+    .uuid()
+    .describe(
+      "The tenant to act on behalf of, checked against the caller's memberships.",
+    ),
+});
+
+export const cancelBookingResponse = zod.object({
+  id: zod.string().uuid().describe("UUIDv7 string."),
+  resourceId: zod.string().uuid().describe("UUIDv7 string."),
+  resourceTypeId: zod.string().uuid().describe("UUIDv7 string."),
+  siteId: zod.string().uuid().describe("UUIDv7 string."),
+  memberId: zod.string().uuid().describe("UUIDv7 string."),
+  start: zod.string().datetime({}),
+  end: zod.string().datetime({}),
+  status: zod.enum([
+    "awaiting_payment",
+    "pending_approval",
+    "confirmed",
+    "checked_in",
+    "completed",
+    "expired",
+    "rejected",
+    "cancelled",
+    "no_show",
+  ]),
+  customFieldValues: zod.record(zod.string(), zod.unknown()),
+  appliedConfig: zod
+    .object({
+      flowConfigVersion: zod.number(),
+      ruleSetVersion: zod.number(),
+      confirmation: zod.enum(["instant", "approval"]),
+      checkIn: zod.object({
+        required: zod.boolean(),
+        opensMinutesBefore: zod
+          .number()
+          .describe(
+            "Check-in opens this many minutes before the booking starts.",
+          ),
+        noShowAfterMinutes: zod
+          .number()
+          .describe(
+            "Minutes after the start with no check-in before the booking is marked no_show.",
+          ),
+      }),
+      cancellation: zod.object({
+        allowedUntilMinutesBefore: zod
+          .number()
+          .describe(
+            "Cancellation is allowed up to this many minutes before the booking starts.",
+          ),
+      }),
+    })
+    .describe(
+      "The resource type's policies at the moment this booking was made. Changing settings later never changes this.",
+    ),
+  history: zod.array(
+    zod.object({
+      fromStatus: zod
+        .enum([
+          "awaiting_payment",
+          "pending_approval",
+          "confirmed",
+          "checked_in",
+          "completed",
+          "expired",
+          "rejected",
+          "cancelled",
+          "no_show",
+        ])
+        .optional()
+        .describe(
+          "Absent for the first entry, written when the booking was submitted.",
+        ),
+      toStatus: zod.enum([
+        "awaiting_payment",
+        "pending_approval",
+        "confirmed",
+        "checked_in",
+        "completed",
+        "expired",
+        "rejected",
+        "cancelled",
+        "no_show",
+      ]),
+      occurredAt: zod.string().datetime({}),
+      actor: zod
+        .object({
+          type: zod.enum(["user", "system"]),
+          id: zod.string().uuid().optional().describe("UUIDv7 string."),
+        })
+        .describe("Who or what triggered a history entry."),
+    }),
+  ),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * Moves a pending_approval booking to confirmed.
+ * @summary Approve
+ */
+export const approveBookingParams = zod.object({
+  bookingId: zod.string().uuid(),
+});
+
+export const approveBookingHeader = zod.object({
+  "X-Tenant-Id": zod
+    .string()
+    .uuid()
+    .describe(
+      "The tenant to act on behalf of, checked against the caller's memberships.",
+    ),
+});
+
+export const approveBookingResponse = zod.object({
+  id: zod.string().uuid().describe("UUIDv7 string."),
+  resourceId: zod.string().uuid().describe("UUIDv7 string."),
+  resourceTypeId: zod.string().uuid().describe("UUIDv7 string."),
+  siteId: zod.string().uuid().describe("UUIDv7 string."),
+  memberId: zod.string().uuid().describe("UUIDv7 string."),
+  start: zod.string().datetime({}),
+  end: zod.string().datetime({}),
+  status: zod.enum([
+    "awaiting_payment",
+    "pending_approval",
+    "confirmed",
+    "checked_in",
+    "completed",
+    "expired",
+    "rejected",
+    "cancelled",
+    "no_show",
+  ]),
+  customFieldValues: zod.record(zod.string(), zod.unknown()),
+  appliedConfig: zod
+    .object({
+      flowConfigVersion: zod.number(),
+      ruleSetVersion: zod.number(),
+      confirmation: zod.enum(["instant", "approval"]),
+      checkIn: zod.object({
+        required: zod.boolean(),
+        opensMinutesBefore: zod
+          .number()
+          .describe(
+            "Check-in opens this many minutes before the booking starts.",
+          ),
+        noShowAfterMinutes: zod
+          .number()
+          .describe(
+            "Minutes after the start with no check-in before the booking is marked no_show.",
+          ),
+      }),
+      cancellation: zod.object({
+        allowedUntilMinutesBefore: zod
+          .number()
+          .describe(
+            "Cancellation is allowed up to this many minutes before the booking starts.",
+          ),
+      }),
+    })
+    .describe(
+      "The resource type's policies at the moment this booking was made. Changing settings later never changes this.",
+    ),
+  history: zod.array(
+    zod.object({
+      fromStatus: zod
+        .enum([
+          "awaiting_payment",
+          "pending_approval",
+          "confirmed",
+          "checked_in",
+          "completed",
+          "expired",
+          "rejected",
+          "cancelled",
+          "no_show",
+        ])
+        .optional()
+        .describe(
+          "Absent for the first entry, written when the booking was submitted.",
+        ),
+      toStatus: zod.enum([
+        "awaiting_payment",
+        "pending_approval",
+        "confirmed",
+        "checked_in",
+        "completed",
+        "expired",
+        "rejected",
+        "cancelled",
+        "no_show",
+      ]),
+      occurredAt: zod.string().datetime({}),
+      actor: zod
+        .object({
+          type: zod.enum(["user", "system"]),
+          id: zod.string().uuid().optional().describe("UUIDv7 string."),
+        })
+        .describe("Who or what triggered a history entry."),
+    }),
+  ),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * Moves a pending_approval booking to rejected and releases any held payment.
+ * @summary Reject
+ */
+export const rejectBookingParams = zod.object({
+  bookingId: zod.string().uuid(),
+});
+
+export const rejectBookingHeader = zod.object({
+  "X-Tenant-Id": zod
+    .string()
+    .uuid()
+    .describe(
+      "The tenant to act on behalf of, checked against the caller's memberships.",
+    ),
+});
+
+export const rejectBookingBody = zod.object({
+  reason: zod.string().min(1).describe("Shown to the member."),
+});
+
+export const rejectBookingResponse = zod.object({
+  id: zod.string().uuid().describe("UUIDv7 string."),
+  resourceId: zod.string().uuid().describe("UUIDv7 string."),
+  resourceTypeId: zod.string().uuid().describe("UUIDv7 string."),
+  siteId: zod.string().uuid().describe("UUIDv7 string."),
+  memberId: zod.string().uuid().describe("UUIDv7 string."),
+  start: zod.string().datetime({}),
+  end: zod.string().datetime({}),
+  status: zod.enum([
+    "awaiting_payment",
+    "pending_approval",
+    "confirmed",
+    "checked_in",
+    "completed",
+    "expired",
+    "rejected",
+    "cancelled",
+    "no_show",
+  ]),
+  customFieldValues: zod.record(zod.string(), zod.unknown()),
+  appliedConfig: zod
+    .object({
+      flowConfigVersion: zod.number(),
+      ruleSetVersion: zod.number(),
+      confirmation: zod.enum(["instant", "approval"]),
+      checkIn: zod.object({
+        required: zod.boolean(),
+        opensMinutesBefore: zod
+          .number()
+          .describe(
+            "Check-in opens this many minutes before the booking starts.",
+          ),
+        noShowAfterMinutes: zod
+          .number()
+          .describe(
+            "Minutes after the start with no check-in before the booking is marked no_show.",
+          ),
+      }),
+      cancellation: zod.object({
+        allowedUntilMinutesBefore: zod
+          .number()
+          .describe(
+            "Cancellation is allowed up to this many minutes before the booking starts.",
+          ),
+      }),
+    })
+    .describe(
+      "The resource type's policies at the moment this booking was made. Changing settings later never changes this.",
+    ),
+  history: zod.array(
+    zod.object({
+      fromStatus: zod
+        .enum([
+          "awaiting_payment",
+          "pending_approval",
+          "confirmed",
+          "checked_in",
+          "completed",
+          "expired",
+          "rejected",
+          "cancelled",
+          "no_show",
+        ])
+        .optional()
+        .describe(
+          "Absent for the first entry, written when the booking was submitted.",
+        ),
+      toStatus: zod.enum([
+        "awaiting_payment",
+        "pending_approval",
+        "confirmed",
+        "checked_in",
+        "completed",
+        "expired",
+        "rejected",
+        "cancelled",
+        "no_show",
+      ]),
+      occurredAt: zod.string().datetime({}),
+      actor: zod
+        .object({
+          type: zod.enum(["user", "system"]),
+          id: zod.string().uuid().optional().describe("UUIDv7 string."),
+        })
+        .describe("Who or what triggered a history entry."),
+    }),
+  ),
   createdAt: zod.string().datetime({}),
   updatedAt: zod.string().datetime({}),
 });
