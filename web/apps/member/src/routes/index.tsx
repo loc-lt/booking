@@ -1,9 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { SearchPage } from '@/features/search';
 
 export const Route = createFileRoute('/')({
-	component: Index,
+	component: SearchPage,
 });
-
-function Index() {
-	return <h1>Member</h1>;
-}

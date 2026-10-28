@@ -1,17 +1,22 @@
-export interface ApiClientConfig {
+export interface CoreClientConfig {
 	baseUrl: string;
-	getAccessToken: () => string | null | undefined;
+	getToken: () => string | null | undefined;
 	getTenantId: () => string | null | undefined;
 }
 
-let config: ApiClientConfig = {
+let config: CoreClientConfig = {
 	baseUrl: '',
-	getAccessToken: () => null,
+	getToken: () => null,
 	getTenantId: () => null,
 };
 
-export function configureApiClient(next: ApiClientConfig): void {
+export function configureCoreClient(next: CoreClientConfig): void {
 	config = next;
+}
+
+/** The tenant the client is currently configured for, e.g. for tagging tracking events. */
+export function getConfiguredTenantId(): string | null | undefined {
+	return config.getTenantId();
 }
 
 export class ApiError extends Error {
@@ -59,7 +64,7 @@ export async function apiFetch<T>({
 	const requestHeaders = new Headers(headers);
 	requestHeaders.set('Accept', 'application/json');
 
-	const token = config.getAccessToken();
+	const token = config.getToken();
 	if (token) {
 		requestHeaders.set('Authorization', `Bearer ${token}`);
 	}

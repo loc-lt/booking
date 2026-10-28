@@ -14,5 +14,20 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@booking-core/api-client": "workspace:*",
+    "@sentry/react": "^11.9.0",
+    "msw": "^2.15.0",
+    "posthog-js": "^1.438.24"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.105.0",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
   }
 }

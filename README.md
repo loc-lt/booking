@@ -458,7 +458,7 @@ We keep our own definition format because the console needs labels, order, help 
 | text, long_text | string | required, minLength, maxLength, pattern |
 | integer, number | number | required, min, max, multipleOf |
 | boolean | boolean | required |
-| date, datetime | ISO string | required, min, max |
+| date, datetime | ISO string | required |
 | select | string | required, options |
 | multi_select | array | required, options, minItems, maxItems |
 | email, url, phone | string | required |
@@ -676,7 +676,7 @@ Tests written while a feature is still taking shape usually encode the wrong beh
 1. **Build the feature.** Don't create or edit test files yet.
 2. **Hand over for verification.** Tell the developer exactly what to check: screens, loading, empty and error states, and each error code the feature handles.
 3. **The developer verifies** and confirms or asks for changes. Repeat until confirmed.
-4. **Propose test cases before committing:** a short list, each with a name, what it covers, and its type (unit, component, end-to-end). Prioritise user-visible behaviour, handled error codes, and edge cases found during verification. Skip layout, styling and shadcn/ui itself.
+4. **Propose test cases before committing:** a short list, each with a name, what it covers, and its type (unit, component, end-to-end). Prioritise user-visible behaviour, handled error codes, and edge cases found during verification. Skip layout, styling and shadcn/ui itself. Hold end-to-end tests until the flow they cover is mostly built — a screen built alone still gets unit and component tests now.
 5. **The developer approves or edits the list.**
 6. **Write and run the tests** with lint and type checks. If a test fails because the feature is wrong, fix the feature. If a test expects the wrong thing, flag it. Update existing tests only for behaviour the developer confirmed, and say so.
 7. **Commit the feature and its tests together.**
@@ -847,6 +847,7 @@ We build product and UX analytics first, to answer the boss's questions: how man
 | `booking.confirmed` (server) | Lifecycle confirms | path, minutesSinceSearch | Member booking |
 | `booking.denied` (server) | A rule blocks | ruleIds | What blocks them |
 | `resource_type_created` | Admin saves a type | fieldCount | Tenant setup |
+| `resource_created` | Admin adds a resource to a type | resourceTypeId | Tenant setup |
 | `rule_published` | Admin publishes a rule | stage, effect, previewUsed | Rule change |
 | `survey_answered` | Member answers the post-booking survey | score | Do they like it |
 
