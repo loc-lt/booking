@@ -11,7 +11,7 @@ import { faker } from "@faker-js/faker";
 import { HttpResponse, delay, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
-import { FieldType } from "../../models";
+import { BookingConfirmation, FieldType } from "../../models";
 import type { ResourceType, ResourceTypeList } from "../../models";
 
 export const getListResourceTypesResponseMock = (
@@ -100,6 +100,28 @@ export const getListResourceTypesResponseMock = (
         undefined,
       ]),
     })),
+    flowConfig: {
+      confirmation: faker.helpers.arrayElement(
+        Object.values(BookingConfirmation),
+      ),
+      checkIn: {
+        required: faker.datatype.boolean(),
+        opensMinutesBefore: faker.number.int({
+          min: undefined,
+          max: undefined,
+        }),
+        noShowAfterMinutes: faker.number.int({
+          min: undefined,
+          max: undefined,
+        }),
+      },
+      cancellation: {
+        allowedUntilMinutesBefore: faker.number.int({
+          min: undefined,
+          max: undefined,
+        }),
+      },
+    },
     createdAt: `${faker.date.past().toISOString().split(".")[0]}Z`,
     updatedAt: `${faker.date.past().toISOString().split(".")[0]}Z`,
   })),
@@ -123,6 +145,11 @@ export const getCreateResourceTypeResponseMock = (): ResourceType => ({
       required: true,
     },
   ],
+  flowConfig: {
+    confirmation: "instant",
+    checkIn: { required: true, opensMinutesBefore: 15, noShowAfterMinutes: 15 },
+    cancellation: { allowedUntilMinutesBefore: 60 },
+  },
   createdAt: "2026-10-28T09:00:00+07:00",
   updatedAt: "2026-10-28T09:00:00+07:00",
 });
@@ -140,6 +167,11 @@ export const getGetResourceTypeResponseMock = (): ResourceType => ({
       required: true,
     },
   ],
+  flowConfig: {
+    confirmation: "instant",
+    checkIn: { required: true, opensMinutesBefore: 15, noShowAfterMinutes: 15 },
+    cancellation: { allowedUntilMinutesBefore: 60 },
+  },
   createdAt: "2026-10-28T09:00:00+07:00",
   updatedAt: "2026-10-28T09:00:00+07:00",
 });

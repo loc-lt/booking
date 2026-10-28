@@ -8,6 +8,9 @@
  */
 import type { ProblemDetails } from "./problemDetails";
 import type { ValidationProblemDetailsAllOf } from "./validationProblemDetailsAllOf";
+import type { ValidationProblemDetailsCode } from "./validationProblemDetailsCode";
 
 export type ValidationProblemDetails = ProblemDetails &
-  ValidationProblemDetailsAllOf;
+  ValidationProblemDetailsAllOf & {
+    code: ValidationProblemDetailsCode;
+  };

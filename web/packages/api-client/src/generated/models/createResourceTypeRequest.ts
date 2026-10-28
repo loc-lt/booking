@@ -7,10 +7,12 @@
  * OpenAPI spec version: 1
  */
 import type { FieldDefinition } from "./fieldDefinition";
+import type { FlowConfig } from "./flowConfig";
 
 export interface CreateResourceTypeRequest {
   /** @pattern ^[a-z][a-z0-9_]*$ */
   key: string;
   label: string;
   fields?: FieldDefinition[];
+  flowConfig: FlowConfig;
 }

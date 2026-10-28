@@ -19,6 +19,10 @@ tags:
     description: Templates for bookable things (desk, meeting room, phone booth).
   - name: resources
     description: Individual bookable things of a resource type.
+  - name: availability
+    description: Free/busy search over a resource type's resources.
+  - name: bookings
+    description: Requests for a resource and the lifecycle moves they go through.
 
 paths:
   /resource-types:
@@ -195,6 +199,292 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /availability:
+    get:
+      operationId: searchAvailability
+      summary: Search free slots
+      description: >
+        Returns the day's slots for a resource type at a site, each with the
+        resources still free for it. Applies hours, blackouts, slot size and
+        buffers from the resource type's configuration.
+      tags: [availability]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - name: siteId
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: resourceTypeId
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: date
+          in: query
+          description: The site-local calendar day to search.
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: resourceId
+          in: query
+          description: Only report free/busy for this one resource.
+          required: false
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      responses:
+        "200":
+          description: The day's slots and which resources are free for each.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityResponse"
+              examples:
+                meetingRoomDay:
+                  $ref: "#/components/examples/AvailabilityResponseExample"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /bookings:
+    get:
+      operationId: listBookings
+      summary: List bookings
+      description: Lists the tenant's bookings, newest first, optionally filtered.
+      tags: [bookings]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: resourceId
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: resourceTypeId
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: siteId
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: memberId
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: status
+          in: query
+          description: Only bookings in this status.
+          required: false
+          schema:
+            $ref: "#/components/schemas/BookingStatus"
+        - name: from
+          in: query
+          description: Only bookings overlapping this range (inclusive).
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: A page of bookings.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createBooking
+      summary: Submit a booking request
+      description: >
+        Runs the request through the booking pipeline (docs/domain/booking.md).
+        Denied requests save nothing and return `BOOKING_DENIED` with the
+        rules that blocked it.
+      tags: [bookings]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+            examples:
+              meetingRoomRequest:
+                $ref: "#/components/examples/CreateBookingRequestExample"
+      responses:
+        "201":
+          description: The created booking.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+              examples:
+                meetingRoomConfirmed:
+                  $ref: "#/components/examples/BookingConfirmedExample"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/SlotTaken"
+        "422":
+          $ref: "#/components/responses/BookingRequestFailed"
+
+  /bookings/{bookingId}:
+    get:
+      operationId: getBooking
+      summary: Get a booking
+      description: Returns one booking by id, including the config it was made under and its status history.
+      tags: [bookings]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: The booking.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+              examples:
+                meetingRoomConfirmed:
+                  $ref: "#/components/examples/BookingConfirmedExample"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /bookings/{bookingId}/check-in:
+    post:
+      operationId: checkInBooking
+      summary: Check in
+      description: Moves a confirmed booking to checked_in. Only inside the resource type's check-in window.
+      tags: [bookings]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: The updated booking.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+
+  /bookings/{bookingId}/cancel:
+    post:
+      operationId: cancelBooking
+      summary: Cancel
+      description: Moves an awaiting_payment, pending_approval or confirmed booking to cancelled. Runs the cancellation policy.
+      tags: [bookings]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: The updated booking.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+
+  /bookings/{bookingId}/approve:
+    post:
+      operationId: approveBooking
+      summary: Approve
+      description: Moves a pending_approval booking to confirmed.
+      tags: [bookings]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: The updated booking.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+
+  /bookings/{bookingId}/reject:
+    post:
+      operationId: rejectBooking
+      summary: Reject
+      description: Moves a pending_approval booking to rejected and releases any held payment.
+      tags: [bookings]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/BookingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectBookingRequest"
+      responses:
+        "200":
+          description: The updated booking.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
 components:
   securitySchemes:
     bearerAuth:
@@ -237,6 +527,19 @@ components:
       required: true
       schema:
         $ref: "#/components/schemas/Uuid"
+    BookingId:
+      name: bookingId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      description: Replaying the same key returns the original result instead of creating a second booking.
+      required: true
+      schema:
+        type: string
 
   responses:
     Unauthenticated:
@@ -263,6 +566,27 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/ValidationProblemDetails"
+    SlotTaken:
+      description: Someone else holds the slot.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    InvalidTransition:
+      description: A move the lifecycle doesn't allow from the booking's current status.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    BookingRequestFailed:
+      description: Bad input, or a rule blocked the request.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/BookingRequestFailedDetails"
+          examples:
+            bookingDenied:
+              $ref: "#/components/examples/BookingDeniedExample"
 
   schemas:
     Uuid:
@@ -287,6 +611,9 @@ components:
           type: string
           enum:
             - VALIDATION_FAILED
+            - BOOKING_DENIED
+            - SLOT_TAKEN
+            - INVALID_TRANSITION
             - UNAUTHENTICATED
             - FORBIDDEN
             - NOT_FOUND
@@ -312,6 +639,37 @@ components:
               type: array
               items:
                 $ref: "#/components/schemas/FieldError"
+
+    RuleReason:
+      type: object
+      description: One rule from the evaluation trace that blocked the request.
+      required: [ruleId, message]
+      properties:
+        ruleId:
+          type: string
+        message:
+          type: string
+
+    BookingDeniedProblemDetails:
+      allOf:
+        - $ref: "#/components/schemas/ProblemDetails"
+        - type: object
+          required: [reasons]
+          properties:
+            reasons:
+              type: array
+              items:
+                $ref: "#/components/schemas/RuleReason"
+
+    BookingRequestFailedDetails:
+      oneOf:
+        - $ref: "#/components/schemas/ValidationProblemDetails"
+        - $ref: "#/components/schemas/BookingDeniedProblemDetails"
+      discriminator:
+        propertyName: code
+        mapping:
+          VALIDATION_FAILED: "#/components/schemas/ValidationProblemDetails"
+          BOOKING_DENIED: "#/components/schemas/BookingDeniedProblemDetails"
 
     FieldType:
       type: string
@@ -387,9 +745,48 @@ components:
         validation:
           $ref: "#/components/schemas/FieldValidation"
 
+    BookingConfirmation:
+      type: string
+      enum: [instant, approval]
+
+    CheckInPolicy:
+      type: object
+      required: [required, opensMinutesBefore, noShowAfterMinutes]
+      properties:
+        required:
+          type: boolean
+        opensMinutesBefore:
+          type: integer
+          description: Check-in opens this many minutes before the booking starts.
+        noShowAfterMinutes:
+          type: integer
+          description: Minutes after the start with no check-in before the booking is marked no_show.
+
+    CancellationPolicy:
+      type: object
+      required: [allowedUntilMinutesBefore]
+      properties:
+        allowedUntilMinutesBefore:
+          type: integer
+          description: Cancellation is allowed up to this many minutes before the booking starts.
+
+    FlowConfig:
+      type: object
+      description: >
+        The resource type's booking policies. Example:
+        docs/examples/flow-config.json. Payment is a later addition.
+      required: [confirmation, checkIn, cancellation]
+      properties:
+        confirmation:
+          $ref: "#/components/schemas/BookingConfirmation"
+        checkIn:
+          $ref: "#/components/schemas/CheckInPolicy"
+        cancellation:
+          $ref: "#/components/schemas/CancellationPolicy"
+
     ResourceType:
       type: object
-      required: [id, key, label, version, fields, createdAt, updatedAt]
+      required: [id, key, label, version, fields, flowConfig, createdAt, updatedAt]
       properties:
         id:
           $ref: "#/components/schemas/Uuid"
@@ -405,6 +802,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FieldDefinition"
+        flowConfig:
+          $ref: "#/components/schemas/FlowConfig"
         createdAt:
           type: string
           format: date-time
@@ -414,7 +813,7 @@ components:
 
     CreateResourceTypeRequest:
       type: object
-      required: [key, label]
+      required: [key, label, flowConfig]
       properties:
         key:
           type: string
@@ -426,6 +825,8 @@ components:
           items:
             $ref: "#/components/schemas/FieldDefinition"
           default: []
+        flowConfig:
+          $ref: "#/components/schemas/FlowConfig"
 
     ResourceTypeList:
       type: object
@@ -489,6 +890,190 @@ components:
           type: string
           nullable: true
 
+    AvailabilitySlot:
+      type: object
+      required: [start, end, resourceIds]
+      properties:
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        resourceIds:
+          type: array
+          description: Resources of the searched type still free for this whole slot.
+          items:
+            $ref: "#/components/schemas/Uuid"
+
+    AvailabilityResponse:
+      type: object
+      required: [siteId, resourceTypeId, date, slotMinutes, slots]
+      properties:
+        siteId:
+          $ref: "#/components/schemas/Uuid"
+        resourceTypeId:
+          $ref: "#/components/schemas/Uuid"
+        date:
+          type: string
+          format: date
+        slotMinutes:
+          type: integer
+          description: Size of each slot, from the resource type's configuration.
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilitySlot"
+
+    BookingStatus:
+      type: string
+      enum:
+        - awaiting_payment
+        - pending_approval
+        - confirmed
+        - checked_in
+        - completed
+        - expired
+        - rejected
+        - cancelled
+        - no_show
+
+    Actor:
+      type: object
+      description: Who or what triggered a history entry.
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [user, system]
+        id:
+          $ref: "#/components/schemas/Uuid"
+
+    BookingHistoryEntry:
+      type: object
+      required: [toStatus, occurredAt, actor]
+      properties:
+        fromStatus:
+          allOf:
+            - $ref: "#/components/schemas/BookingStatus"
+          description: Absent for the first entry, written when the booking was submitted.
+        toStatus:
+          $ref: "#/components/schemas/BookingStatus"
+        occurredAt:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/Actor"
+
+    AppliedConfig:
+      type: object
+      description: The resource type's policies at the moment this booking was made. Changing settings later never changes this.
+      required: [flowConfigVersion, ruleSetVersion, confirmation, checkIn, cancellation]
+      properties:
+        flowConfigVersion:
+          type: integer
+        ruleSetVersion:
+          type: integer
+        confirmation:
+          $ref: "#/components/schemas/BookingConfirmation"
+        checkIn:
+          $ref: "#/components/schemas/CheckInPolicy"
+        cancellation:
+          $ref: "#/components/schemas/CancellationPolicy"
+
+    Booking:
+      type: object
+      required:
+        - id
+        - resourceId
+        - resourceTypeId
+        - siteId
+        - memberId
+        - start
+        - end
+        - status
+        - customFieldValues
+        - appliedConfig
+        - history
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        resourceId:
+          $ref: "#/components/schemas/Uuid"
+        resourceTypeId:
+          $ref: "#/components/schemas/Uuid"
+        siteId:
+          $ref: "#/components/schemas/Uuid"
+        memberId:
+          $ref: "#/components/schemas/Uuid"
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/BookingStatus"
+        customFieldValues:
+          type: object
+          additionalProperties: true
+        appliedConfig:
+          $ref: "#/components/schemas/AppliedConfig"
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookingHistoryEntry"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateBookingRequest:
+      type: object
+      required: [resourceId, start, end]
+      properties:
+        resourceId:
+          $ref: "#/components/schemas/Uuid"
+        memberId:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          description: Defaults to the authenticated user; set to book on behalf of another member.
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        customFieldValues:
+          type: object
+          additionalProperties: true
+          default: {}
+
+    RejectBookingRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: Shown to the member.
+
+    BookingList:
+      type: object
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        nextCursor:
+          type: string
+          nullable: true
+
   examples:
     CreateResourceTypeRequestPhoneBooth:
       value:
@@ -499,6 +1084,14 @@ components:
             label: Has phone charger
             type: boolean
             required: true
+        flowConfig:
+          confirmation: instant
+          checkIn:
+            required: true
+            opensMinutesBefore: 15
+            noShowAfterMinutes: 15
+          cancellation:
+            allowedUntilMinutesBefore: 60
 
     ResourceTypePhoneBooth:
       value:
@@ -511,6 +1104,14 @@ components:
             label: Has phone charger
             type: boolean
             required: true
+        flowConfig:
+          confirmation: instant
+          checkIn:
+            required: true
+            opensMinutesBefore: 15
+            noShowAfterMinutes: 15
+          cancellation:
+            allowedUntilMinutesBefore: 60
         createdAt: "2026-10-28T09:00:00+07:00"
         updatedAt: "2026-10-28T09:00:00+07:00"
 
@@ -532,3 +1133,65 @@ components:
           has_phone_charger: true
         createdAt: "2026-10-28T09:05:00+07:00"
         updatedAt: "2026-10-28T09:05:00+07:00"
+
+    AvailabilityResponseExample:
+      value:
+        siteId: "0193f4c2-8b4c-7d4f-9f3b-2a0c7d6e5f4b"
+        resourceTypeId: "0193f4c4-2d6e-7f6b-ba5d-4c2e9f8a7b6c"
+        date: "2026-12-15"
+        slotMinutes: 30
+        slots:
+          - start: "2026-12-15T09:00:00+07:00"
+            end: "2026-12-15T09:30:00+07:00"
+            resourceIds:
+              - "0193f4c4-3e7f-7a7c-ab6e-5d3f0a9b8c7d"
+          - start: "2026-12-15T09:30:00+07:00"
+            end: "2026-12-15T10:00:00+07:00"
+            resourceIds: []
+
+    CreateBookingRequestExample:
+      value:
+        resourceId: "0193f4c4-3e7f-7a7c-ab6e-5d3f0a9b8c7d"
+        start: "2026-12-15T09:00:00+07:00"
+        end: "2026-12-15T09:30:00+07:00"
+        customFieldValues: {}
+
+    BookingConfirmedExample:
+      value:
+        id: "0193f4c6-5a91-7c9e-cd80-7f5b2c1d0e9f"
+        resourceId: "0193f4c4-3e7f-7a7c-ab6e-5d3f0a9b8c7d"
+        resourceTypeId: "0193f4c4-2d6e-7f6b-ba5d-4c2e9f8a7b6c"
+        siteId: "0193f4c2-8b4c-7d4f-9f3b-2a0c7d6e5f4b"
+        memberId: "0193f4c5-4f80-7b8d-bc7f-6e4a1b0c9d8e"
+        start: "2026-12-15T09:00:00+07:00"
+        end: "2026-12-15T09:30:00+07:00"
+        status: confirmed
+        customFieldValues: {}
+        appliedConfig:
+          flowConfigVersion: 1
+          ruleSetVersion: 1
+          confirmation: instant
+          checkIn:
+            required: true
+            opensMinutesBefore: 15
+            noShowAfterMinutes: 15
+          cancellation:
+            allowedUntilMinutesBefore: 60
+        history:
+          - toStatus: confirmed
+            occurredAt: "2026-12-15T07:02:11+07:00"
+            actor:
+              type: user
+              id: "0193f4c5-4f80-7b8d-bc7f-6e4a1b0c9d8e"
+        createdAt: "2026-12-15T07:02:11+07:00"
+        updatedAt: "2026-12-15T07:02:11+07:00"
+
+    BookingDeniedExample:
+      value:
+        type: "https://errors.bookingcore.dev/booking-denied"
+        title: Booking not allowed
+        status: 422
+        code: BOOKING_DENIED
+        reasons:
+          - ruleId: guests-max-2h
+            message: Guests can book at most 2 hours

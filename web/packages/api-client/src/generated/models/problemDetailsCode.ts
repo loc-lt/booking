@@ -13,6 +13,9 @@ export type ProblemDetailsCode =
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const ProblemDetailsCode = {
   VALIDATION_FAILED: "VALIDATION_FAILED",
+  BOOKING_DENIED: "BOOKING_DENIED",
+  SLOT_TAKEN: "SLOT_TAKEN",
+  INVALID_TRANSITION: "INVALID_TRANSITION",
   UNAUTHENTICATED: "UNAUTHENTICATED",
   FORBIDDEN: "FORBIDDEN",
   NOT_FOUND: "NOT_FOUND",
