@@ -1,0 +1,534 @@
+openapi: 3.1.0
+
+info:
+  title: Booking Core API
+  version: "1"
+  description: >
+    The booking core API. See docs/api.md for conventions and the contract
+    workflow. This file is the only description of the API; the client, Zod
+    schemas and mocks in web/packages/api-client are generated from it.
+
+servers:
+  - url: /api/v1
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: resource-types
+    description: Templates for bookable things (desk, meeting room, phone booth).
+  - name: resources
+    description: Individual bookable things of a resource type.
+
+paths:
+  /resource-types:
+    get:
+      operationId: listResourceTypes
+      summary: List resource types
+      description: Lists the tenant's resource types, newest first.
+      tags: [resource-types]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of resource types.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceTypeList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createResourceType
+      summary: Create a resource type
+      description: Creates a resource type with its custom field definitions, published immediately.
+      tags: [resource-types]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateResourceTypeRequest"
+            examples:
+              phoneBooth:
+                $ref: "#/components/examples/CreateResourceTypeRequestPhoneBooth"
+      responses:
+        "201":
+          description: The created resource type.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceType"
+              examples:
+                phoneBooth:
+                  $ref: "#/components/examples/ResourceTypePhoneBooth"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /resource-types/{resourceTypeId}:
+    get:
+      operationId: getResourceType
+      summary: Get a resource type
+      description: Returns one resource type by id.
+      tags: [resource-types]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceTypeId"
+      responses:
+        "200":
+          description: The resource type.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceType"
+              examples:
+                phoneBooth:
+                  $ref: "#/components/examples/ResourceTypePhoneBooth"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /resources:
+    get:
+      operationId: listResources
+      summary: List resources
+      description: Lists the tenant's resources, optionally filtered by type or site.
+      tags: [resources]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: resourceTypeId
+          in: query
+          description: Only resources of this type.
+          required: false
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: siteId
+          in: query
+          description: Only resources at this site.
+          required: false
+          schema:
+            $ref: "#/components/schemas/Uuid"
+      responses:
+        "200":
+          description: A page of resources.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createResource
+      summary: Create a resource
+      description: Creates one bookable resource of an existing resource type at a site.
+      tags: [resources]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateResourceRequest"
+            examples:
+              phoneBooth1:
+                $ref: "#/components/examples/CreateResourceRequestPhoneBooth1"
+      responses:
+        "201":
+          description: The created resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resource"
+              examples:
+                phoneBooth1:
+                  $ref: "#/components/examples/ResourcePhoneBooth1"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /resources/{resourceId}:
+    get:
+      operationId: getResource
+      summary: Get a resource
+      description: Returns one resource by id.
+      tags: [resources]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: The resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resource"
+              examples:
+                phoneBooth1:
+                  $ref: "#/components/examples/ResourcePhoneBooth1"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    TenantId:
+      name: X-Tenant-Id
+      in: header
+      description: The tenant to act on behalf of, checked against the caller's memberships.
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+    ResourceTypeId:
+      name: resourceTypeId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    ResourceId:
+      name: resourceId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+
+  responses:
+    Unauthenticated:
+      description: Missing, invalid or expired token.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    Forbidden:
+      description: Not allowed in this tenant.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    NotFound:
+      description: No resource with that id in this tenant.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
+    ValidationFailed:
+      description: The request body failed validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ValidationProblemDetails"
+
+  schemas:
+    Uuid:
+      type: string
+      format: uuid
+      description: UUIDv7 string.
+      example: "0193f4c2-7a3b-7c3e-8e2a-1f9b6c5d4e3a"
+
+    ProblemDetails:
+      type: object
+      description: RFC 9457 problem details, extended with a stable `code`.
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+          enum:
+            - VALIDATION_FAILED
+            - UNAUTHENTICATED
+            - FORBIDDEN
+            - NOT_FOUND
+        detail:
+          type: string
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+
+    ValidationProblemDetails:
+      allOf:
+        - $ref: "#/components/schemas/ProblemDetails"
+        - type: object
+          required: [errors]
+          properties:
+            errors:
+              type: array
+              items:
+                $ref: "#/components/schemas/FieldError"
+
+    FieldType:
+      type: string
+      enum:
+        - text
+        - long_text
+        - integer
+        - number
+        - boolean
+        - date
+        - datetime
+        - select
+        - multi_select
+        - email
+        - url
+        - phone
+        - reference
+        - file
+        - multi_file
+
+    FieldOption:
+      type: object
+      required: [value, label]
+      properties:
+        value:
+          type: string
+        label:
+          type: string
+
+    FieldValidation:
+      type: object
+      description: Only the properties relevant to the field's type are set.
+      properties:
+        minLength:
+          type: integer
+        maxLength:
+          type: integer
+        pattern:
+          type: string
+        min:
+          type: number
+        max:
+          type: number
+        multipleOf:
+          type: number
+        minItems:
+          type: integer
+        maxItems:
+          type: integer
+
+    FieldDefinition:
+      type: object
+      required: [key, label, type]
+      properties:
+        key:
+          type: string
+          description: Permanent identifier. Labels can change freely; keys cannot.
+          pattern: "^[a-z][a-z0-9_]*$"
+        label:
+          type: string
+        type:
+          $ref: "#/components/schemas/FieldType"
+        required:
+          type: boolean
+          default: false
+        help:
+          type: string
+        options:
+          type: array
+          description: Required for select and multi_select fields.
+          items:
+            $ref: "#/components/schemas/FieldOption"
+        validation:
+          $ref: "#/components/schemas/FieldValidation"
+
+    ResourceType:
+      type: object
+      required: [id, key, label, version, fields, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        key:
+          type: string
+          pattern: "^[a-z][a-z0-9_]*$"
+        label:
+          type: string
+        version:
+          type: integer
+          description: Config version this resource type is on.
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldDefinition"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateResourceTypeRequest:
+      type: object
+      required: [key, label]
+      properties:
+        key:
+          type: string
+          pattern: "^[a-z][a-z0-9_]*$"
+        label:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldDefinition"
+          default: []
+
+    ResourceTypeList:
+      type: object
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResourceType"
+        nextCursor:
+          type: string
+          nullable: true
+
+    Resource:
+      type: object
+      required: [id, resourceTypeId, siteId, label, customFieldValues, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        resourceTypeId:
+          $ref: "#/components/schemas/Uuid"
+        siteId:
+          $ref: "#/components/schemas/Uuid"
+        label:
+          type: string
+        customFieldValues:
+          type: object
+          description: Keyed by the resource type's field keys.
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateResourceRequest:
+      type: object
+      required: [resourceTypeId, siteId, label]
+      properties:
+        resourceTypeId:
+          $ref: "#/components/schemas/Uuid"
+        siteId:
+          $ref: "#/components/schemas/Uuid"
+        label:
+          type: string
+        customFieldValues:
+          type: object
+          additionalProperties: true
+          default: {}
+
+    ResourceList:
+      type: object
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Resource"
+        nextCursor:
+          type: string
+          nullable: true
+
+  examples:
+    CreateResourceTypeRequestPhoneBooth:
+      value:
+        key: phone_booth
+        label: Phone booth
+        fields:
+          - key: has_phone_charger
+            label: Has phone charger
+            type: boolean
+            required: true
+
+    ResourceTypePhoneBooth:
+      value:
+        id: "0193f4c2-7a3b-7c3e-8e2a-1f9b6c5d4e3a"
+        key: phone_booth
+        label: Phone booth
+        version: 1
+        fields:
+          - key: has_phone_charger
+            label: Has phone charger
+            type: boolean
+            required: true
+        createdAt: "2026-10-28T09:00:00+07:00"
+        updatedAt: "2026-10-28T09:00:00+07:00"
+
+    CreateResourceRequestPhoneBooth1:
+      value:
+        resourceTypeId: "0193f4c2-7a3b-7c3e-8e2a-1f9b6c5d4e3a"
+        siteId: "0193f4c2-8b4c-7d4f-9f3b-2a0c7d6e5f4b"
+        label: Phone Booth 1
+        customFieldValues:
+          has_phone_charger: true
+
+    ResourcePhoneBooth1:
+      value:
+        id: "0193f4c2-9c5d-7e5a-af4c-3b1d8e7f6a5c"
+        resourceTypeId: "0193f4c2-7a3b-7c3e-8e2a-1f9b6c5d4e3a"
+        siteId: "0193f4c2-8b4c-7d4f-9f3b-2a0c7d6e5f4b"
+        label: Phone Booth 1
+        customFieldValues:
+          has_phone_charger: true
+        createdAt: "2026-10-28T09:05:00+07:00"
+        updatedAt: "2026-10-28T09:05:00+07:00"
