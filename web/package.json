@@ -3,12 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "gen": "orval --config orval.config.ts",
     "lint": "biome check .",
+    "spectral": "spectral",
     "test": "vitest run",
     "typecheck": "tsc --build"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.3",
+    "@stoplight/spectral-cli": "^6.15.0",
+    "orval": "^7.14.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   },

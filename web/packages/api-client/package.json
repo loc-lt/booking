@@ -14,5 +14,19 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^19.0.0"
+  },
+  "dependencies": {
+    "@faker-js/faker": "^9.4.0",
+    "msw": "^2.7.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.90.5",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
   }
 }

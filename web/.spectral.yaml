@@ -1,0 +1,38 @@
+extends:
+  - [spectral:oas, recommended]
+
+rules:
+  booking-core-versioned-base-path:
+    description: The contract's base path is versioned (docs/api.md).
+    severity: error
+    given: $.servers[*].url
+    then:
+      function: pattern
+      functionOptions:
+        match: "^/api/v1(/.*)?$"
+
+  booking-core-kebab-case-paths:
+    description: Paths use kebab-case segments (docs/api.md).
+    severity: error
+    given: $.paths[*]~
+    then:
+      function: pattern
+      functionOptions:
+        match: "^(/[a-z0-9]+(-[a-z0-9]+)*(/\\{[a-zA-Z0-9]+\\})?)+$"
+
+  booking-core-camel-case-properties:
+    description: JSON properties are camelCase (docs/api.md).
+    severity: error
+    given: $.components.schemas[*].properties[*]~
+    then:
+      function: casing
+      functionOptions:
+        type: camel
+
+  booking-core-error-has-code:
+    description: Every problem-details response exposes a stable `code` (docs/api.md).
+    severity: error
+    given: $.components.schemas[?(@.properties && @.properties.status)]
+    then:
+      field: properties.code
+      function: truthy
