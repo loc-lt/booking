@@ -19,6 +19,7 @@ import {
 	Skeleton,
 } from '@booking-core/ui';
 import { useEffect, useState } from 'react';
+import { ResourceAvailability } from './ResourceAvailability';
 
 const ALL_TYPES = 'all';
 
@@ -94,7 +95,7 @@ export function SearchPage() {
 						<CardHeader>
 							<CardTitle>{resource.label}</CardTitle>
 						</CardHeader>
-						<CardContent className='flex flex-col gap-1'>
+						<CardContent className='flex flex-col gap-3'>
 							{resourceType?.fields.map((field) => (
 								<FieldValueView
 									key={field.key}
@@ -102,6 +103,10 @@ export function SearchPage() {
 									value={resource.customFieldValues[field.key]}
 								/>
 							))}
+							<ResourceAvailability
+								resourceId={resource.id}
+								resourceTypeId={resource.resourceTypeId}
+							/>
 						</CardContent>
 					</Card>
 				);

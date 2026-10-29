@@ -99,6 +99,9 @@ importers:
       '@booking-core/app-kit':
         specifier: workspace:*
         version: link:../../packages/app-kit
+      '@booking-core/booking-ui':
+        specifier: workspace:*
+        version: link:../../packages/booking-ui
       '@booking-core/custom-fields':
         specifier: workspace:*
         version: link:../../packages/custom-fields
@@ -187,7 +190,21 @@ importers:
         specifier: ^19.3.1
         version: 19.3.1
 
-  packages/booking-ui: {}
+  packages/booking-ui:
+    dependencies:
+      '@booking-core/api-client':
+        specifier: workspace:*
+        version: link:../api-client
+      '@booking-core/ui':
+        specifier: workspace:*
+        version: link:../ui
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
 
   packages/custom-fields:
     dependencies:
