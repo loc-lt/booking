@@ -1,0 +1,13 @@
+{
+  "name": "mock-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --import ./hooks/register.js --watch server.js",
+    "start": "node --import ./hooks/register.js server.js"
+  },
+  "dependencies": {
+    "@booking-core/api-client": "workspace:*"
+  }
+}

@@ -3,6 +3,7 @@ import {
 	getListResourceTypesQueryKey,
 	schemas,
 	useCreateResourceType,
+	useListResourceTypes,
 } from '@booking-core/api-client';
 import { trackEvent } from '@booking-core/app-kit';
 import { FieldDefinitionsEditor } from '@booking-core/custom-fields';
@@ -11,6 +12,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { DEFAULT_FLOW_CONFIG, FlowConfigFields } from './FlowConfigFields';
 
 const formSchema = schemas.createResourceTypeBody.extend({
 	key: z
@@ -26,7 +28,12 @@ const formSchema = schemas.createResourceTypeBody.extend({
 type FormInput = z.input<typeof formSchema>;
 type FormOutput = z.output<typeof formSchema>;
 
-const defaultValues: FormInput = { key: '', label: '', fields: [] };
+const defaultValues: FormInput = {
+	key: '',
+	label: '',
+	fields: [],
+	flowConfig: DEFAULT_FLOW_CONFIG,
+};
 
 export function CreateResourceTypeForm() {
 	const queryClient = useQueryClient();
@@ -42,6 +49,11 @@ export function CreateResourceTypeForm() {
 		defaultValues,
 	});
 	const createResourceType = useCreateResourceType();
+	const resourceTypesQuery = useListResourceTypes();
+	const resourceTypeOptions = (resourceTypesQuery.data?.data ?? []).map((type) => ({
+		value: type.id,
+		label: type.label,
+	}));
 
 	const onSubmit = handleSubmit((values) => {
 		createResourceType.mutate(
@@ -98,7 +110,26 @@ export function CreateResourceTypeForm() {
 							control={control}
 							name='fields'
 							render={({ field }) => (
-								<FieldDefinitionsEditor value={field.value ?? []} onChange={field.onChange} />
+								<FieldDefinitionsEditor
+									value={field.value ?? []}
+									onChange={field.onChange}
+									resourceTypeOptions={resourceTypeOptions}
+								/>
+							)}
+						/>
+					</div>
+
+					<div className='space-y-1 border-t pt-4'>
+						<Label>Flow config</Label>
+						<Controller
+							control={control}
+							name='flowConfig'
+							render={({ field }) => (
+								<FlowConfigFields
+									idPrefix='create-resource-type'
+									value={field.value ?? DEFAULT_FLOW_CONFIG}
+									onChange={field.onChange}
+								/>
 							)}
 						/>
 					</div>

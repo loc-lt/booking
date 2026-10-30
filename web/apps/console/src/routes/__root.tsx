@@ -9,9 +9,17 @@ function RootLayout() {
 		<div className='min-h-dvh'>
 			<header className='flex items-center gap-4 border-b p-4'>
 				<span className='font-semibold'>Booking Core · Console</span>
-				<Link to='/resource-types' className='text-sm hover:underline'>
-					Resource types
-				</Link>
+				<nav className='flex gap-3 text-sm'>
+					<Link to='/resource-types' activeProps={{ className: 'font-medium' }}>
+						Resource types
+					</Link>
+					<Link to='/approvals' activeProps={{ className: 'font-medium' }}>
+						Approvals
+					</Link>
+					<Link to='/bookings' activeProps={{ className: 'font-medium' }}>
+						Bookings
+					</Link>
+				</nav>
 			</header>
 			<Outlet />
 		</div>

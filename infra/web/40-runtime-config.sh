@@ -11,6 +11,7 @@ window.__CONFIG__ = {
   apiUrl: "${API_URL:-}",
   apiMode: "${API_MODE:-real}",
   posthogKey: "${POSTHOG_KEY:-}",
-  sentryDsn: "${SENTRY_DSN:-}"
+  sentryDsn: "${SENTRY_DSN:-}",
+  staleTimeMinutes: ${QUERY_STALE_TIME_MINUTES:-5}
 };
 EOF

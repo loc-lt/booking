@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - mock-server
 allowBuilds:
   '@scarf/scarf': false
   core-js: true

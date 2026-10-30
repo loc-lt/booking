@@ -5,7 +5,7 @@ import {
 	useCheckInBooking,
 } from '@booking-core/api-client';
 import { trackEvent } from '@booking-core/app-kit';
-import { BookingCard, BookingTimeline } from '@booking-core/booking-ui';
+import { BookingCard, BookingTimeline, isCheckInOpen } from '@booking-core/booking-ui';
 import { Button } from '@booking-core/ui';
 
 const CANCELLABLE_STATUSES = new Set(['awaiting_payment', 'pending_approval', 'confirmed']);
@@ -26,7 +26,7 @@ export function BookingRow({
 	const cancelBooking = useCancelBooking();
 	const checkInBooking = useCheckInBooking();
 
-	const canCheckIn = booking.status === 'confirmed';
+	const canCheckIn = isCheckInOpen(booking, new Date());
 	const canCancel = CANCELLABLE_STATUSES.has(booking.status);
 	const error = checkInBooking.error ?? cancelBooking.error;
 

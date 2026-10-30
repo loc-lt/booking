@@ -1,7 +1,12 @@
 import type { FieldDefinition } from '@booking-core/api-client';
+import type { ReferenceOption } from './CustomFieldValueInput';
 
 /** Formats a custom field's stored value for display, given its definition. */
-export function formatFieldValue(field: FieldDefinition, value: unknown): string {
+export function formatFieldValue(
+	field: FieldDefinition,
+	value: unknown,
+	referenceOptions?: Record<string, ReferenceOption[]>,
+): string {
 	if (value === null || value === undefined || value === '') {
 		return '—';
 	}
@@ -20,6 +25,11 @@ export function formatFieldValue(field: FieldDefinition, value: unknown): string
 		case 'date':
 		case 'datetime':
 			return formatDate(String(value), field.type);
+		case 'reference': {
+			const targetId = field.validation?.targetResourceTypeId;
+			const options = targetId ? referenceOptions?.[targetId] : undefined;
+			return options?.find((option) => option.value === value)?.label ?? String(value);
+		}
 		default:
 			return String(value);
 	}

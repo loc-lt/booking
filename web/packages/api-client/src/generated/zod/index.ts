@@ -76,6 +76,12 @@ export const listResourceTypesResponse = zod.object({
             "file",
             "multi_file",
           ]),
+          scope: zod
+            .enum(["resource", "booking"])
+            .optional()
+            .describe(
+              "`resource`: an admin sets the value once per resource instance (e.g. a meeting room's TV type); members see it read-only and are never asked to fill it in again. `booking`: collected from the member on every booking (e.g. number of attendees).\n",
+            ),
           required: zod.boolean().optional(),
           help: zod.string().optional(),
           options: zod
@@ -97,6 +103,14 @@ export const listResourceTypesResponse = zod.object({
               multipleOf: zod.number().optional(),
               minItems: zod.number().optional(),
               maxItems: zod.number().optional(),
+              targetResourceTypeId: zod
+                .string()
+                .uuid()
+                .describe("UUIDv7 string.")
+                .optional()
+                .describe(
+                  'Required for reference fields: the resource type a reference value must belong to (e.g. a meeting room\'s \"primary table\" field, scoped to the \"table\" resource type).\n',
+                ),
             })
             .optional()
             .describe(
@@ -188,6 +202,12 @@ export const createResourceTypeBody = zod.object({
           "file",
           "multi_file",
         ]),
+        scope: zod
+          .enum(["resource", "booking"])
+          .optional()
+          .describe(
+            "`resource`: an admin sets the value once per resource instance (e.g. a meeting room's TV type); members see it read-only and are never asked to fill it in again. `booking`: collected from the member on every booking (e.g. number of attendees).\n",
+          ),
         required: zod.boolean().optional(),
         help: zod.string().optional(),
         options: zod
@@ -209,6 +229,14 @@ export const createResourceTypeBody = zod.object({
             multipleOf: zod.number().optional(),
             minItems: zod.number().optional(),
             maxItems: zod.number().optional(),
+            targetResourceTypeId: zod
+              .string()
+              .uuid()
+              .describe("UUIDv7 string.")
+              .optional()
+              .describe(
+                'Required for reference fields: the resource type a reference value must belong to (e.g. a meeting room\'s \"primary table\" field, scoped to the \"table\" resource type).\n',
+              ),
           })
           .optional()
           .describe(
@@ -302,6 +330,12 @@ export const getResourceTypeResponse = zod.object({
         "file",
         "multi_file",
       ]),
+      scope: zod
+        .enum(["resource", "booking"])
+        .optional()
+        .describe(
+          "`resource`: an admin sets the value once per resource instance (e.g. a meeting room's TV type); members see it read-only and are never asked to fill it in again. `booking`: collected from the member on every booking (e.g. number of attendees).\n",
+        ),
       required: zod.boolean().optional(),
       help: zod.string().optional(),
       options: zod
@@ -323,6 +357,177 @@ export const getResourceTypeResponse = zod.object({
           multipleOf: zod.number().optional(),
           minItems: zod.number().optional(),
           maxItems: zod.number().optional(),
+          targetResourceTypeId: zod
+            .string()
+            .uuid()
+            .describe("UUIDv7 string.")
+            .optional()
+            .describe(
+              'Required for reference fields: the resource type a reference value must belong to (e.g. a meeting room\'s \"primary table\" field, scoped to the \"table\" resource type).\n',
+            ),
+        })
+        .optional()
+        .describe("Only the properties relevant to the field's type are set."),
+    }),
+  ),
+  flowConfig: zod
+    .object({
+      confirmation: zod.enum(["instant", "approval"]),
+      checkIn: zod.object({
+        required: zod.boolean(),
+        opensMinutesBefore: zod
+          .number()
+          .describe(
+            "Check-in opens this many minutes before the booking starts.",
+          ),
+        noShowAfterMinutes: zod
+          .number()
+          .describe(
+            "Minutes after the start with no check-in before the booking is marked no_show.",
+          ),
+      }),
+      cancellation: zod.object({
+        allowedUntilMinutesBefore: zod
+          .number()
+          .describe(
+            "Cancellation is allowed up to this many minutes before the booking starts.",
+          ),
+      }),
+    })
+    .describe(
+      "The resource type's booking policies. Example: docs\/examples\/flow-config.json. Payment is a later addition.\n",
+    ),
+  createdAt: zod.string().datetime({}),
+  updatedAt: zod.string().datetime({}),
+});
+
+/**
+ * Changes the resource type's booking policies (confirmation, check-in, cancellation). Bookings already made keep the policies they were made under (see `Booking.appliedConfig`). Carries `baseVersion` so a stale edit is rejected instead of silently overwriting a newer change.
+
+ * @summary Update a resource type's flow config
+ */
+export const updateResourceTypeParams = zod.object({
+  resourceTypeId: zod.string().uuid(),
+});
+
+export const updateResourceTypeHeader = zod.object({
+  "X-Tenant-Id": zod
+    .string()
+    .uuid()
+    .describe(
+      "The tenant to act on behalf of, checked against the caller's memberships.",
+    ),
+});
+
+export const updateResourceTypeBody = zod.object({
+  baseVersion: zod
+    .number()
+    .describe(
+      "The resource type's `version` this edit was based on. Stale → `STALE_VERSION`.",
+    ),
+  flowConfig: zod
+    .object({
+      confirmation: zod.enum(["instant", "approval"]),
+      checkIn: zod.object({
+        required: zod.boolean(),
+        opensMinutesBefore: zod
+          .number()
+          .describe(
+            "Check-in opens this many minutes before the booking starts.",
+          ),
+        noShowAfterMinutes: zod
+          .number()
+          .describe(
+            "Minutes after the start with no check-in before the booking is marked no_show.",
+          ),
+      }),
+      cancellation: zod.object({
+        allowedUntilMinutesBefore: zod
+          .number()
+          .describe(
+            "Cancellation is allowed up to this many minutes before the booking starts.",
+          ),
+      }),
+    })
+    .describe(
+      "The resource type's booking policies. Example: docs\/examples\/flow-config.json. Payment is a later addition.\n",
+    ),
+});
+
+export const updateResourceTypeResponseKeyRegExp = new RegExp(
+  "^[a-z][a-z0-9_]\*$",
+);
+export const updateResourceTypeResponseFieldsItemKeyRegExp = new RegExp(
+  "^[a-z][a-z0-9_]\*$",
+);
+export const updateResourceTypeResponseFieldsItemRequiredDefault = false;
+
+export const updateResourceTypeResponse = zod.object({
+  id: zod.string().uuid().describe("UUIDv7 string."),
+  key: zod.string().regex(updateResourceTypeResponseKeyRegExp),
+  label: zod.string(),
+  version: zod.number().describe("Config version this resource type is on."),
+  fields: zod.array(
+    zod.object({
+      key: zod
+        .string()
+        .regex(updateResourceTypeResponseFieldsItemKeyRegExp)
+        .describe(
+          "Permanent identifier. Labels can change freely; keys cannot.",
+        ),
+      label: zod.string(),
+      type: zod.enum([
+        "text",
+        "long_text",
+        "integer",
+        "number",
+        "boolean",
+        "date",
+        "datetime",
+        "select",
+        "multi_select",
+        "email",
+        "url",
+        "phone",
+        "reference",
+        "file",
+        "multi_file",
+      ]),
+      scope: zod
+        .enum(["resource", "booking"])
+        .optional()
+        .describe(
+          "`resource`: an admin sets the value once per resource instance (e.g. a meeting room's TV type); members see it read-only and are never asked to fill it in again. `booking`: collected from the member on every booking (e.g. number of attendees).\n",
+        ),
+      required: zod.boolean().optional(),
+      help: zod.string().optional(),
+      options: zod
+        .array(
+          zod.object({
+            value: zod.string(),
+            label: zod.string(),
+          }),
+        )
+        .optional()
+        .describe("Required for select and multi_select fields."),
+      validation: zod
+        .object({
+          minLength: zod.number().optional(),
+          maxLength: zod.number().optional(),
+          pattern: zod.string().optional(),
+          min: zod.number().optional(),
+          max: zod.number().optional(),
+          multipleOf: zod.number().optional(),
+          minItems: zod.number().optional(),
+          maxItems: zod.number().optional(),
+          targetResourceTypeId: zod
+            .string()
+            .uuid()
+            .describe("UUIDv7 string.")
+            .optional()
+            .describe(
+              'Required for reference fields: the resource type a reference value must belong to (e.g. a meeting room\'s \"primary table\" field, scoped to the \"table\" resource type).\n',
+            ),
         })
         .optional()
         .describe("Only the properties relevant to the field's type are set."),

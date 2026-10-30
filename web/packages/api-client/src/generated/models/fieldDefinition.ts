@@ -7,6 +7,7 @@
  * OpenAPI spec version: 1
  */
 import type { FieldType } from "./fieldType";
+import type { FieldScope } from "./fieldScope";
 import type { FieldOption } from "./fieldOption";
 import type { FieldValidation } from "./fieldValidation";
 
@@ -18,6 +19,7 @@ export interface FieldDefinition {
   key: string;
   label: string;
   type: FieldType;
+  scope?: FieldScope;
   required?: boolean;
   help?: string;
   /** Required for select and multi_select fields. */

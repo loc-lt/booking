@@ -1,13 +1,10 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 import { getRuntimeConfig } from './config';
 import { ErrorBoundary } from './ErrorBoundary';
 import { startMocking } from './mocking';
+import { createQueryClient } from './queryClient';
 import { initTracking } from './tracking';
-
-function createQueryClient(): QueryClient {
-	return new QueryClient();
-}
 
 export interface CoreAppProviderProps {
 	/** Tags tracking and error reports, e.g. "console" or "member". */

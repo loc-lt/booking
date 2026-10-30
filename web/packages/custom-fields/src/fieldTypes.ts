@@ -33,7 +33,7 @@ export function fieldTypeNeedsOptions(type: FieldType): boolean {
 	return type === 'select' || type === 'multi_select';
 }
 
-export type FieldValidationKind = 'text' | 'numeric' | 'array' | 'none';
+export type FieldValidationKind = 'text' | 'numeric' | 'array' | 'reference' | 'none';
 
 const TEXT_TYPES: FieldType[] = ['text', 'long_text', 'email', 'url', 'phone'];
 const NUMERIC_TYPES: FieldType[] = ['integer', 'number'];
@@ -43,5 +43,6 @@ export function fieldTypeValidationKind(type: FieldType): FieldValidationKind {
 	if (TEXT_TYPES.includes(type)) return 'text';
 	if (NUMERIC_TYPES.includes(type)) return 'numeric';
 	if (type === 'multi_select') return 'array';
+	if (type === 'reference') return 'reference';
 	return 'none';
 }

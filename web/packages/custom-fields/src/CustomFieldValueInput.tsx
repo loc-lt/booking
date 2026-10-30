@@ -9,11 +9,18 @@ import {
 	SelectValue,
 } from '@booking-core/ui';
 
+export interface ReferenceOption {
+	value: string;
+	label: string;
+}
+
 export interface CustomFieldValueInputProps {
 	field: FieldDefinition;
 	value: unknown;
 	onChange: (value: unknown) => void;
 	id: string;
+	/** Candidate resources for `reference` fields, keyed by target resource type id. */
+	referenceOptions?: Record<string, ReferenceOption[]>;
 }
 
 /**
@@ -22,7 +29,13 @@ export interface CustomFieldValueInputProps {
  * field's compiled JSON Schema the way docs/frontend.md's Ajv step will —
  * see FieldDefinitionsEditor for where that validation belongs next.
  */
-export function CustomFieldValueInput({ field, value, onChange, id }: CustomFieldValueInputProps) {
+export function CustomFieldValueInput({
+	field,
+	value,
+	onChange,
+	id,
+	referenceOptions,
+}: CustomFieldValueInputProps) {
 	switch (field.type) {
 		case 'boolean':
 			return (
@@ -97,8 +110,31 @@ export function CustomFieldValueInput({ field, value, onChange, id }: CustomFiel
 				/>
 			);
 
+		case 'reference': {
+			const targetId = field.validation?.targetResourceTypeId;
+			const options = (targetId ? referenceOptions?.[targetId] : undefined) ?? [];
+			return (
+				<Select
+					items={options}
+					value={typeof value === 'string' ? value : ''}
+					onValueChange={(next) => onChange(next ?? undefined)}
+				>
+					<SelectTrigger id={id} className='w-full'>
+						<SelectValue placeholder={options.length ? 'Select…' : 'No resources available'} />
+					</SelectTrigger>
+					<SelectContent>
+						{options.map((option) => (
+							<SelectItem key={option.value} value={option.value}>
+								{option.label}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+			);
+		}
+
 		default:
-			// multi_select, reference, file, multi_file: no dedicated input yet.
+			// multi_select, file, multi_file: no dedicated input yet.
 			return (
 				<Input
 					id={id}

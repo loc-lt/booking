@@ -228,9 +228,10 @@ booking-core/
 ├── core/api/                 Flask app: modules/, worker/, migrations/, tests/
 ├── web/                      pnpm workspace: shared packages and the two apps
 │   ├── packages/             shared frontend: api-client, ui, custom-fields, rules-editor, booking-ui, app-kit
-│   └── apps/
-│       ├── console/          operators: sites, resource types, fields, rules, flows, approvals
-│       └── member/           members: search, book, my bookings, check in, cancel
+│   ├── apps/
+│   │   ├── console/          operators: sites, resource types, fields, rules, flows, approvals
+│   │   └── member/           members: search, book, my bookings, check in, cancel
+│   └── mock-server/          local stand-in API: runs the apps' shared mock data as one real server, so console and member see each other's changes before core/api exists for a feature
 ├── seeds/                    demo tenants as configuration data
 ├── contracts/openapi.yaml    the API contract
 ├── infra/                    Dockerfiles, Compose files, Caddyfile
@@ -243,6 +244,7 @@ booking-core/
 - **The apps are treated like a product:** they use only package entry points and the public API. No demo-only endpoints. If they need something, it goes into a package or the API, where products get it too.
 - **Seeds are configuration, never code.**
 - **The console is not throwaway:** configuring types, fields, rules and flows is the same for every product, so its building blocks live in `web/packages/`.
+- **`web/mock-server` is dev-only and never deployed:** it runs the exact same scenario logic as each app's in-browser MSW mocks, but as one real local server, so console and member can share data before `core/api` implements a feature. See [frontend.md](#frontend-guide)'s "Shared mock server".
 
 ### How products use the core
 
@@ -648,6 +650,8 @@ Packages are what products install, so they are built as libraries:
 
 Every app starts through `app-kit`. It reads the runtime config, creates the query client, wires the JWT into the API client, initialises PostHog and Sentry with the app's name (`console` or `member`), and provides the top-level error boundary.
 
+The query client disables `refetchOnWindowFocus` and retries, and treats a query as fresh for `staleTimeMinutes` (runtime config, default `DEFAULT_STALE_TIME_MINUTES` in `queryClient.ts`) before refetching it — screens that need fresher data after their own action call `queryClient.invalidateQueries(...)` explicitly rather than relying on a refetch-on-focus.
+
 ### UI rules
 
 - No direct `fetch`; all server data goes through generated hooks.
@@ -660,12 +664,18 @@ Every app starts through `app-kit`. It reads the runtime config, creates the que
 
 1. Edit `contracts/openapi.yaml` while building the screen.
 2. Run `pnpm gen`: Orval regenerates hooks, Zod schemas and MSW mocks. Generated code is committed.
-3. Add scenario handlers in `web/packages/api-client/src/scenarios/` where behaviour matters: `SLOT_TAKEN`, `BOOKING_DENIED` with reasons, slow responses.
+3. Add scenario handlers in `web/packages/api-client/src/scenarios/` where behaviour matters: `SLOT_TAKEN`, `BOOKING_DENIED` with reasons, slow responses. Each scenario's stateful logic lives in a plain, framework-free `*Operations.ts` module (e.g. `bookingsOperations.ts`); the MSW handlers in `*Store.ts` are a thin adapter over it, so the same logic also runs the shared mock server below.
 4. Switch each feature from `mock` to `real` with the runtime `apiMode` setting and its per-feature overrides as the backend lands.
+
+#### Shared mock server, for running both apps together
+
+Each app's own MSW mocks are per-tab and reset on reload — fine solo, but console and member then can't see each other's data. `web/mock-server` runs the same scenario operations as one real local HTTP server instead, so a resource type created in console shows up in member, a booking made in member shows up in console's approvals and bookings list, and so on. It has no state of its own beyond those operations modules — it's the in-browser mock lifted out from behind MSW, not a second implementation.
+
+Run it alongside both apps: `pnpm --filter mock-server dev` (serves `http://localhost:4000`, reset with `POST /__reset`). Both apps' `public/config.js` point at it by default (`apiMode: 'real'`). For solo work where running a third process isn't worth it, switch an app's `public/config.js` back to `apiMode: 'mock'` — each tab gets its own throwaway MSW data again, same as before.
 
 ### Running locally
 
-From `web/`, run `pnpm --filter console dev` and `pnpm --filter member dev` natively, side by side, against the API, worker and database in Docker Compose. Node is pinned in `web/.nvmrc`, pnpm in `web/package.json`. Images and runtime config: [operations.md](#operations).
+From `web/`, run `pnpm --filter console dev` and `pnpm --filter member dev` natively, side by side, against the API, worker and database in Docker Compose. Node is pinned in `web/.nvmrc`, pnpm in `web/package.json`. Images and runtime config: [operations.md](#operations). Before that backend exists for a given feature, run `pnpm --filter mock-server dev` alongside them instead — see "Shared mock server" above.
 
 Environment values are read at runtime from `window.__CONFIG__`, never from `import.meta.env`, so one image runs everywhere.
 
@@ -848,11 +858,14 @@ We build product and UX analytics first, to answer the boss's questions: how man
 | `booking.denied` (server) | A rule blocks | ruleIds | What blocks them |
 | `resource_type_created` | Admin saves a type | fieldCount | Tenant setup |
 | `resource_created` | Admin adds a resource to a type | resourceTypeId | Tenant setup |
+| `resource_type_flow_config_updated` | Admin saves a type's flow config | resourceTypeId, confirmation | Tenant setup |
 | `rule_published` | Admin publishes a rule | stage, effect, previewUsed | Rule change |
 | `survey_answered` | Member answers the post-booking survey | score | Do they like it |
 | `my_bookings_viewed` | Member opens "My bookings" | resultsCount | — |
 | `booking_checked_in` | Member checks in | resourceTypeId | — |
 | `booking_cancelled` | Member cancels a booking | resourceTypeId | — |
+| `booking_approved` | Admin approves a pending booking | resourceTypeId | Admin approvals |
+| `booking_rejected` | Admin rejects a pending booking | resourceTypeId | Admin approvals |
 
 
 ---
