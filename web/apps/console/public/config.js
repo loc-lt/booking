@@ -11,7 +11,7 @@ window.__CONFIG__ = {
 	app: 'console',
 	apiUrl: 'http://localhost:4000',
 	apiMode: 'real',
-	posthogKey: '',
+	posthogKey: 'phc_xj9MDfLy5MmommnT7JUcvNqb2SmPbdJQsgnJgeWxPnEt',
 	sentryDsn: 'https://226fb830f1727fd1efb6b21d40bfe79f@o4512342763307008.ingest.us.sentry.io/4512343280254976',
 	// Minutes a query stays fresh before TanStack Query refetches it. See
 	// app-kit's queryClient.ts — refetchOnWindowFocus and retry are off, so
