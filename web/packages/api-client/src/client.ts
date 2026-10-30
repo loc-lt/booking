@@ -74,11 +74,24 @@ export async function apiFetch<T>({
 		requestHeaders.set('X-Tenant-Id', tenantId);
 	}
 
-	const response = await fetch(buildUrl(url, params), {
+	const requestInit: RequestInit = {
 		method,
 		headers: requestHeaders,
 		body: data === undefined ? undefined : JSON.stringify(data),
 		signal,
+	};
+
+	const response = await fetch(buildUrl(url, params), requestInit).catch((error) => {
+		// jsdom's AbortController/AbortSignal (what TanStack Query constructs in
+		// our component tests) isn't accepted by Node's native fetch, which
+		// checks for its own AbortSignal class rather than whatever
+		// globalThis.AbortSignal currently is. Harmless to retry without it —
+		// cancellation just becomes a no-op, which never happens in a real
+		// browser (one realm, no mismatch).
+		if (signal && error instanceof TypeError && /AbortSignal/.test(error.message)) {
+			return fetch(buildUrl(url, params), { ...requestInit, signal: undefined });
+		}
+		throw error;
 	});
 
 	if (!response.ok) {
