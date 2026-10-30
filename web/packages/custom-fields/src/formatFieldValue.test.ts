@@ -53,4 +53,21 @@ describe('formatFieldValue', () => {
 		const dateField = field({ type: 'date' });
 		expect(formatFieldValue(dateField, 'not-a-date')).toBe('not-a-date');
 	});
+
+	it('resolves a reference value to the matching resource label', () => {
+		const referenceField = field({
+			type: 'reference',
+			validation: { targetResourceTypeId: 'table-type' },
+		});
+		const referenceOptions = { 'table-type': [{ value: 'table-a', label: 'Table A' }] };
+		expect(formatFieldValue(referenceField, 'table-a', referenceOptions)).toBe('Table A');
+	});
+
+	it('falls back to the raw id when a reference value has no matching resource', () => {
+		const referenceField = field({
+			type: 'reference',
+			validation: { targetResourceTypeId: 'table-type' },
+		});
+		expect(formatFieldValue(referenceField, 'table-a', {})).toBe('table-a');
+	});
 });

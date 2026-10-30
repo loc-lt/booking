@@ -1,4 +1,4 @@
-import type { FieldDefinition, FieldOption, FieldType } from '@booking-core/api-client';
+import type { FieldDefinition, FieldOption, FieldScope, FieldType } from '@booking-core/api-client';
 import {
 	Button,
 	Checkbox,
@@ -11,17 +11,25 @@ import {
 	SelectValue,
 } from '@booking-core/ui';
 import { FieldValidationFields } from './FieldValidationFields';
+import { DEFAULT_FIELD_SCOPE, FIELD_SCOPE_OPTIONS, fieldScope } from './fieldScopes';
 import { FIELD_TYPE_OPTIONS, fieldTypeNeedsOptions, fieldTypeValidationKind } from './fieldTypes';
+
+export interface ResourceTypeOption {
+	value: string;
+	label: string;
+}
 
 export interface FieldDefinitionsEditorProps {
 	value: FieldDefinition[];
 	onChange: (next: FieldDefinition[]) => void;
 	/** Per-field error message, keyed by the field's position in `value`. */
 	errors?: Record<number, string>;
+	/** Resource types a `reference` field can target. */
+	resourceTypeOptions?: ResourceTypeOption[];
 }
 
 function emptyField(): FieldDefinition {
-	return { key: '', label: '', type: 'text', required: false };
+	return { key: '', label: '', type: 'text', scope: DEFAULT_FIELD_SCOPE, required: false };
 }
 
 /**
@@ -29,7 +37,12 @@ function emptyField(): FieldDefinition {
  * label, type, required, and the option list for select/multi_select.
  * Controlled, framework-agnostic — the console wires it into its form.
  */
-export function FieldDefinitionsEditor({ value, onChange, errors }: FieldDefinitionsEditorProps) {
+export function FieldDefinitionsEditor({
+	value,
+	onChange,
+	errors,
+	resourceTypeOptions = [],
+}: FieldDefinitionsEditorProps) {
 	function updateField(index: number, patch: Partial<FieldDefinition>) {
 		onChange(value.map((field, i) => (i === index ? { ...field, ...patch } : field)));
 	}
@@ -107,6 +120,25 @@ export function FieldDefinitionsEditor({ value, onChange, errors }: FieldDefinit
 								</SelectContent>
 							</Select>
 						</div>
+						<div className='w-48 space-y-1'>
+							<Label htmlFor={`field-${index}-scope`}>Collected from</Label>
+							<Select
+								items={FIELD_SCOPE_OPTIONS}
+								value={fieldScope(field)}
+								onValueChange={(next) => updateField(index, { scope: next as FieldScope })}
+							>
+								<SelectTrigger id={`field-${index}-scope`}>
+									<SelectValue />
+								</SelectTrigger>
+								<SelectContent>
+									{FIELD_SCOPE_OPTIONS.map((option) => (
+										<SelectItem key={option.value} value={option.value}>
+											{option.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
 						<Button type='button' variant='ghost' onClick={() => removeField(index)}>
 							Remove
 						</Button>
@@ -128,6 +160,17 @@ export function FieldDefinitionsEditor({ value, onChange, errors }: FieldDefinit
 						/>
 					)}
 
+					{field.type === 'reference' && (
+						<ReferenceTargetEditor
+							idPrefix={`field-${index}-target`}
+							resourceTypeOptions={resourceTypeOptions}
+							value={field.validation?.targetResourceTypeId}
+							onChange={(targetResourceTypeId) =>
+								updateField(index, { validation: { ...field.validation, targetResourceTypeId } })
+							}
+						/>
+					)}
+
 					<FieldValidationFields
 						idPrefix={`field-${index}-validation`}
 						type={field.type}
@@ -142,6 +185,48 @@ export function FieldDefinitionsEditor({ value, onChange, errors }: FieldDefinit
 			<Button type='button' variant='outline' onClick={addField}>
 				Add custom field
 			</Button>
+		</div>
+	);
+}
+
+function ReferenceTargetEditor({
+	idPrefix,
+	resourceTypeOptions,
+	value,
+	onChange,
+}: {
+	idPrefix: string;
+	resourceTypeOptions: ResourceTypeOption[];
+	value: string | undefined;
+	onChange: (next: string | undefined) => void;
+}) {
+	if (resourceTypeOptions.length === 0) {
+		return (
+			<p className='text-muted-foreground text-sm'>
+				Create another resource type first — a reference field needs one to point at.
+			</p>
+		);
+	}
+
+	return (
+		<div className='w-64 space-y-1'>
+			<Label htmlFor={idPrefix}>References</Label>
+			<Select
+				items={resourceTypeOptions}
+				value={value ?? ''}
+				onValueChange={(next) => onChange(next ?? undefined)}
+			>
+				<SelectTrigger id={idPrefix}>
+					<SelectValue placeholder='Choose a resource type…' />
+				</SelectTrigger>
+				<SelectContent>
+					{resourceTypeOptions.map((option) => (
+						<SelectItem key={option.value} value={option.value}>
+							{option.label}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
 		</div>
 	);
 }

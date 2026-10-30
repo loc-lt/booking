@@ -11,6 +11,7 @@
   "dependencies": {
     "@booking-core/api-client": "workspace:*",
     "@booking-core/app-kit": "workspace:*",
+    "@booking-core/booking-ui": "workspace:*",
     "@booking-core/custom-fields": "workspace:*",
     "@booking-core/ui": "workspace:*",
     "@hookform/resolvers": "^6.0.0",

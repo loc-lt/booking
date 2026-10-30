@@ -11,7 +11,7 @@ import { faker } from "@faker-js/faker";
 import { HttpResponse, delay, http } from "msw";
 import type { RequestHandlerOptions } from "msw";
 
-import { BookingConfirmation, FieldType } from "../../models";
+import { BookingConfirmation, FieldScope, FieldType } from "../../models";
 import type { ResourceType, ResourceTypeList } from "../../models";
 
 export const getListResourceTypesResponseMock = (
@@ -32,6 +32,10 @@ export const getListResourceTypesResponseMock = (
       key: faker.helpers.fromRegExp("^[a-z][a-z0-9_]*$"),
       label: faker.string.alpha({ length: { min: 10, max: 20 } }),
       type: faker.helpers.arrayElement(Object.values(FieldType)),
+      scope: faker.helpers.arrayElement([
+        faker.helpers.arrayElement(Object.values(FieldScope)),
+        undefined,
+      ]),
       required: faker.helpers.arrayElement([
         faker.datatype.boolean(),
         undefined,
@@ -94,6 +98,10 @@ export const getListResourceTypesResponseMock = (
           ]),
           maxItems: faker.helpers.arrayElement([
             faker.number.int({ min: undefined, max: undefined }),
+            undefined,
+          ]),
+          targetResourceTypeId: faker.helpers.arrayElement([
+            faker.string.uuid(),
             undefined,
           ]),
         },
@@ -174,6 +182,114 @@ export const getGetResourceTypeResponseMock = (): ResourceType => ({
   },
   createdAt: "2026-10-28T09:00:00+07:00",
   updatedAt: "2026-10-28T09:00:00+07:00",
+});
+
+export const getUpdateResourceTypeResponseMock = (
+  overrideResponse: Partial<ResourceType> = {},
+): ResourceType => ({
+  id: faker.string.uuid(),
+  key: faker.helpers.fromRegExp("^[a-z][a-z0-9_]*$"),
+  label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+  version: faker.number.int({ min: undefined, max: undefined }),
+  fields: Array.from(
+    { length: faker.number.int({ min: 1, max: 10 }) },
+    (_, i) => i + 1,
+  ).map(() => ({
+    key: faker.helpers.fromRegExp("^[a-z][a-z0-9_]*$"),
+    label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+    type: faker.helpers.arrayElement(Object.values(FieldType)),
+    scope: faker.helpers.arrayElement([
+      faker.helpers.arrayElement(Object.values(FieldScope)),
+      undefined,
+    ]),
+    required: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]),
+    help: faker.helpers.arrayElement([
+      faker.string.alpha({ length: { min: 10, max: 20 } }),
+      undefined,
+    ]),
+    options: faker.helpers.arrayElement([
+      Array.from(
+        { length: faker.number.int({ min: 1, max: 10 }) },
+        (_, i) => i + 1,
+      ).map(() => ({
+        value: faker.string.alpha({ length: { min: 10, max: 20 } }),
+        label: faker.string.alpha({ length: { min: 10, max: 20 } }),
+      })),
+      undefined,
+    ]),
+    validation: faker.helpers.arrayElement([
+      {
+        minLength: faker.helpers.arrayElement([
+          faker.number.int({ min: undefined, max: undefined }),
+          undefined,
+        ]),
+        maxLength: faker.helpers.arrayElement([
+          faker.number.int({ min: undefined, max: undefined }),
+          undefined,
+        ]),
+        pattern: faker.helpers.arrayElement([
+          faker.string.alpha({ length: { min: 10, max: 20 } }),
+          undefined,
+        ]),
+        min: faker.helpers.arrayElement([
+          faker.number.float({
+            min: undefined,
+            max: undefined,
+            fractionDigits: 2,
+          }),
+          undefined,
+        ]),
+        max: faker.helpers.arrayElement([
+          faker.number.float({
+            min: undefined,
+            max: undefined,
+            fractionDigits: 2,
+          }),
+          undefined,
+        ]),
+        multipleOf: faker.helpers.arrayElement([
+          faker.number.float({
+            min: undefined,
+            max: undefined,
+            fractionDigits: 2,
+          }),
+          undefined,
+        ]),
+        minItems: faker.helpers.arrayElement([
+          faker.number.int({ min: undefined, max: undefined }),
+          undefined,
+        ]),
+        maxItems: faker.helpers.arrayElement([
+          faker.number.int({ min: undefined, max: undefined }),
+          undefined,
+        ]),
+        targetResourceTypeId: faker.helpers.arrayElement([
+          faker.string.uuid(),
+          undefined,
+        ]),
+      },
+      undefined,
+    ]),
+  })),
+  flowConfig: {
+    confirmation: faker.helpers.arrayElement(
+      Object.values(BookingConfirmation),
+    ),
+    checkIn: {
+      required: faker.datatype.boolean(),
+      opensMinutesBefore: faker.number.int({ min: undefined, max: undefined }),
+      noShowAfterMinutes: faker.number.int({ min: undefined, max: undefined }),
+    },
+    cancellation: {
+      allowedUntilMinutesBefore: faker.number.int({
+        min: undefined,
+        max: undefined,
+      }),
+    },
+  },
+  createdAt: `${faker.date.past().toISOString().split(".")[0]}Z`,
+  updatedAt: `${faker.date.past().toISOString().split(".")[0]}Z`,
+  ...overrideResponse,
 });
 
 export const getListResourceTypesMockHandler = (
@@ -259,8 +375,37 @@ export const getGetResourceTypeMockHandler = (
     options,
   );
 };
+
+export const getUpdateResourceTypeMockHandler = (
+  overrideResponse?:
+    | ResourceType
+    | ((
+        info: Parameters<Parameters<typeof http.patch>[1]>[0],
+      ) => Promise<ResourceType> | ResourceType),
+  options?: RequestHandlerOptions,
+) => {
+  return http.patch(
+    "*/resource-types/:resourceTypeId",
+    async (info) => {
+      await delay(1000);
+
+      return new HttpResponse(
+        JSON.stringify(
+          overrideResponse !== undefined
+            ? typeof overrideResponse === "function"
+              ? await overrideResponse(info)
+              : overrideResponse
+            : getUpdateResourceTypeResponseMock(),
+        ),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    },
+    options,
+  );
+};
 export const getResourceTypesMock = () => [
   getListResourceTypesMockHandler(),
   getCreateResourceTypeMockHandler(),
   getGetResourceTypeMockHandler(),
+  getUpdateResourceTypeMockHandler(),
 ];

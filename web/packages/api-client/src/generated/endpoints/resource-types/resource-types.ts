@@ -24,7 +24,9 @@ import type {
   NotFoundResponse,
   ResourceType,
   ResourceTypeList,
+  StaleVersionResponse,
   UnauthenticatedResponse,
+  UpdateResourceTypeRequest,
   ValidationFailedResponse,
 } from "../../models";
 
@@ -296,3 +298,102 @@ export function useGetResourceType<
 
   return query;
 }
+
+/**
+ * Changes the resource type's booking policies (confirmation, check-in, cancellation). Bookings already made keep the policies they were made under (see `Booking.appliedConfig`). Carries `baseVersion` so a stale edit is rejected instead of silently overwriting a newer change.
+
+ * @summary Update a resource type's flow config
+ */
+export const updateResourceType = (
+  resourceTypeId: string,
+  updateResourceTypeRequest: UpdateResourceTypeRequest,
+) => {
+  return apiFetch<ResourceType>({
+    url: `/resource-types/${resourceTypeId}`,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    data: updateResourceTypeRequest,
+  });
+};
+
+export const getUpdateResourceTypeMutationOptions = <
+  TError =
+    | UnauthenticatedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | StaleVersionResponse
+    | ValidationFailedResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateResourceType>>,
+    TError,
+    { resourceTypeId: string; data: UpdateResourceTypeRequest },
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateResourceType>>,
+  TError,
+  { resourceTypeId: string; data: UpdateResourceTypeRequest },
+  TContext
+> => {
+  const mutationKey = ["updateResourceType"];
+  const { mutation: mutationOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey } };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateResourceType>>,
+    { resourceTypeId: string; data: UpdateResourceTypeRequest }
+  > = (props) => {
+    const { resourceTypeId, data } = props ?? {};
+
+    return updateResourceType(resourceTypeId, data);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateResourceTypeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateResourceType>>
+>;
+export type UpdateResourceTypeMutationBody = UpdateResourceTypeRequest;
+export type UpdateResourceTypeMutationError =
+  | UnauthenticatedResponse
+  | ForbiddenResponse
+  | NotFoundResponse
+  | StaleVersionResponse
+  | ValidationFailedResponse;
+
+/**
+ * @summary Update a resource type's flow config
+ */
+export const useUpdateResourceType = <
+  TError =
+    | UnauthenticatedResponse
+    | ForbiddenResponse
+    | NotFoundResponse
+    | StaleVersionResponse
+    | ValidationFailedResponse,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateResourceType>>,
+    TError,
+    { resourceTypeId: string; data: UpdateResourceTypeRequest },
+    TContext
+  >;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateResourceType>>,
+  TError,
+  { resourceTypeId: string; data: UpdateResourceTypeRequest },
+  TContext
+> => {
+  const mutationOptions = getUpdateResourceTypeMutationOptions(options);
+
+  return useMutation(mutationOptions);
+};

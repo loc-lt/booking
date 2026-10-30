@@ -104,6 +104,41 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateResourceType
+      summary: Update a resource type's flow config
+      description: >
+        Changes the resource type's booking policies (confirmation, check-in,
+        cancellation). Bookings already made keep the policies they were made
+        under (see `Booking.appliedConfig`). Carries `baseVersion` so a stale
+        edit is rejected instead of silently overwriting a newer change.
+      tags: [resource-types]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceTypeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateResourceTypeRequest"
+      responses:
+        "200":
+          description: The updated resource type.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceType"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/StaleVersion"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /resources:
     get:
@@ -578,6 +613,12 @@ components:
         application/problem+json:
           schema:
             $ref: "#/components/schemas/ProblemDetails"
+    StaleVersion:
+      description: The edit was based on an outdated version.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
     BookingRequestFailed:
       description: Bad input, or a rule blocked the request.
       content:
@@ -614,6 +655,7 @@ components:
             - BOOKING_DENIED
             - SLOT_TAKEN
             - INVALID_TRANSITION
+            - STALE_VERSION
             - UNAUTHENTICATED
             - FORBIDDEN
             - NOT_FOUND
@@ -690,6 +732,17 @@ components:
         - file
         - multi_file
 
+    FieldScope:
+      type: string
+      enum:
+        - resource
+        - booking
+      description: >
+        `resource`: an admin sets the value once per resource instance (e.g. a
+        meeting room's TV type); members see it read-only and are never asked
+        to fill it in again. `booking`: collected from the member on every
+        booking (e.g. number of attendees).
+
     FieldOption:
       type: object
       required: [value, label]
@@ -719,6 +772,13 @@ components:
           type: integer
         maxItems:
           type: integer
+        targetResourceTypeId:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          description: >
+            Required for reference fields: the resource type a reference
+            value must belong to (e.g. a meeting room's "primary table"
+            field, scoped to the "table" resource type).
 
     FieldDefinition:
       type: object
@@ -732,6 +792,9 @@ components:
           type: string
         type:
           $ref: "#/components/schemas/FieldType"
+        scope:
+          $ref: "#/components/schemas/FieldScope"
+          default: resource
         required:
           type: boolean
           default: false
@@ -825,6 +888,16 @@ components:
           items:
             $ref: "#/components/schemas/FieldDefinition"
           default: []
+        flowConfig:
+          $ref: "#/components/schemas/FlowConfig"
+
+    UpdateResourceTypeRequest:
+      type: object
+      required: [baseVersion, flowConfig]
+      properties:
+        baseVersion:
+          type: integer
+          description: The resource type's `version` this edit was based on. Stale → `STALE_VERSION`.
         flowConfig:
           $ref: "#/components/schemas/FlowConfig"
 

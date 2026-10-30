@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithQueryClient } from '../../test-utils';
 import { BookingRow } from './BookingRow';
 
@@ -38,7 +38,16 @@ const server = setupServer(
 );
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => server.resetHandlers());
+// Bookings are seeded on a fixed demo date; fake only Date so check-in's time-window
+// check (isCheckInOpen) sees "now" as inside it, without breaking userEvent's own timers.
+beforeEach(() => {
+	vi.useFakeTimers({ toFake: ['Date'] });
+	vi.setSystemTime(new Date('2026-12-15T09:00:00+07:00'));
+});
+afterEach(() => {
+	vi.useRealTimers();
+	server.resetHandlers();
+});
 afterAll(() => server.close());
 
 describe('BookingRow', () => {

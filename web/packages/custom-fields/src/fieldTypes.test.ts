@@ -51,9 +51,13 @@ describe('fieldTypeValidationKind', () => {
 		expect(fieldTypeValidationKind('datetime')).toBe('none');
 	});
 
-	it('is "none" for boolean, select, reference, file and multi_file', () => {
-		for (const type of ['boolean', 'select', 'reference', 'file', 'multi_file'] as const) {
+	it('is "none" for boolean, select, file and multi_file', () => {
+		for (const type of ['boolean', 'select', 'file', 'multi_file'] as const) {
 			expect(fieldTypeValidationKind(type)).toBe('none');
 		}
+	});
+
+	it('is "reference" for reference fields, so switching away clears the target type', () => {
+		expect(fieldTypeValidationKind('reference')).toBe('reference');
 	});
 });

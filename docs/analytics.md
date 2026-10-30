@@ -39,8 +39,11 @@ We build product and UX analytics first, to answer the boss's questions: how man
 | `booking.denied` (server) | A rule blocks | ruleIds | What blocks them |
 | `resource_type_created` | Admin saves a type | fieldCount | Tenant setup |
 | `resource_created` | Admin adds a resource to a type | resourceTypeId | Tenant setup |
+| `resource_type_flow_config_updated` | Admin saves a type's flow config | resourceTypeId, confirmation | Tenant setup |
 | `rule_published` | Admin publishes a rule | stage, effect, previewUsed | Rule change |
 | `survey_answered` | Member answers the post-booking survey | score | Do they like it |
 | `my_bookings_viewed` | Member opens "My bookings" | resultsCount | — |
 | `booking_checked_in` | Member checks in | resourceTypeId | — |
 | `booking_cancelled` | Member cancels a booking | resourceTypeId | — |
+| `booking_approved` | Admin approves a pending booking | resourceTypeId | Admin approvals |
+| `booking_rejected` | Admin rejects a pending booking | resourceTypeId | Admin approvals |

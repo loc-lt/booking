@@ -47,6 +47,8 @@ Packages are what products install, so they are built as libraries:
 
 Every app starts through `app-kit`. It reads the runtime config, creates the query client, wires the JWT into the API client, initialises PostHog and Sentry with the app's name (`console` or `member`), and provides the top-level error boundary.
 
+The query client disables `refetchOnWindowFocus` and retries, and treats a query as fresh for `staleTimeMinutes` (runtime config, default `DEFAULT_STALE_TIME_MINUTES` in `queryClient.ts`) before refetching it — screens that need fresher data after their own action call `queryClient.invalidateQueries(...)` explicitly rather than relying on a refetch-on-focus.
+
 ## UI rules
 
 - No direct `fetch`; all server data goes through generated hooks.
@@ -59,12 +61,18 @@ Every app starts through `app-kit`. It reads the runtime config, creates the que
 
 1. Edit `contracts/openapi.yaml` while building the screen.
 2. Run `pnpm gen`: Orval regenerates hooks, Zod schemas and MSW mocks. Generated code is committed.
-3. Add scenario handlers in `web/packages/api-client/src/scenarios/` where behaviour matters: `SLOT_TAKEN`, `BOOKING_DENIED` with reasons, slow responses.
+3. Add scenario handlers in `web/packages/api-client/src/scenarios/` where behaviour matters: `SLOT_TAKEN`, `BOOKING_DENIED` with reasons, slow responses. Each scenario's stateful logic lives in a plain, framework-free `*Operations.ts` module (e.g. `bookingsOperations.ts`); the MSW handlers in `*Store.ts` are a thin adapter over it, so the same logic also runs the shared mock server below.
 4. Switch each feature from `mock` to `real` with the runtime `apiMode` setting and its per-feature overrides as the backend lands.
+
+### Shared mock server, for running both apps together
+
+Each app's own MSW mocks are per-tab and reset on reload — fine solo, but console and member then can't see each other's data. `web/mock-server` runs the same scenario operations as one real local HTTP server instead, so a resource type created in console shows up in member, a booking made in member shows up in console's approvals and bookings list, and so on. It has no state of its own beyond those operations modules — it's the in-browser mock lifted out from behind MSW, not a second implementation.
+
+Run it alongside both apps: `pnpm --filter mock-server dev` (serves `http://localhost:4000`, reset with `POST /__reset`). Both apps' `public/config.js` point at it by default (`apiMode: 'real'`). For solo work where running a third process isn't worth it, switch an app's `public/config.js` back to `apiMode: 'mock'` — each tab gets its own throwaway MSW data again, same as before.
 
 ## Running locally
 
-From `web/`, run `pnpm --filter console dev` and `pnpm --filter member dev` natively, side by side, against the API, worker and database in Docker Compose. Node is pinned in `web/.nvmrc`, pnpm in `web/package.json`. Images and runtime config: [operations.md](operations.md).
+From `web/`, run `pnpm --filter console dev` and `pnpm --filter member dev` natively, side by side, against the API, worker and database in Docker Compose. Node is pinned in `web/.nvmrc`, pnpm in `web/package.json`. Images and runtime config: [operations.md](operations.md). Before that backend exists for a given feature, run `pnpm --filter mock-server dev` alongside them instead — see "Shared mock server" above.
 
 Environment values are read at runtime from `window.__CONFIG__`, never from `import.meta.env`, so one image runs everywhere.
 

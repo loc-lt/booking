@@ -5,7 +5,7 @@ import {
 	useListResourceTypes,
 } from '@booking-core/api-client';
 import { trackEvent } from '@booking-core/app-kit';
-import { FieldValueView } from '@booking-core/custom-fields';
+import { FieldValueView, isBookingScoped, isResourceScoped } from '@booking-core/custom-fields';
 import {
 	Card,
 	CardContent,
@@ -29,6 +29,14 @@ export function SearchPage() {
 	const resourcesQuery = useListResources({
 		resourceTypeId: resourceTypeId === ALL_TYPES ? undefined : resourceTypeId,
 	});
+	// Unfiltered, to resolve `reference` fields' values regardless of the selected type.
+	const allResourcesQuery = useListResources();
+	const referenceOptions: Record<string, { value: string; label: string }[]> = {};
+	for (const resource of allResourcesQuery.data?.data ?? []) {
+		const existing = referenceOptions[resource.resourceTypeId] ?? [];
+		existing.push({ value: resource.id, label: resource.label });
+		referenceOptions[resource.resourceTypeId] = existing;
+	}
 
 	useEffect(() => {
 		if (resourcesQuery.data) {
@@ -96,16 +104,18 @@ export function SearchPage() {
 							<CardTitle>{resource.label}</CardTitle>
 						</CardHeader>
 						<CardContent className='flex flex-col gap-3'>
-							{resourceType?.fields.map((field) => (
+							{resourceType?.fields.filter(isResourceScoped).map((field) => (
 								<FieldValueView
 									key={field.key}
 									field={field}
 									value={resource.customFieldValues[field.key]}
+									referenceOptions={referenceOptions}
 								/>
 							))}
 							<ResourceAvailability
 								resourceId={resource.id}
 								resourceTypeId={resource.resourceTypeId}
+								fields={resourceType?.fields.filter(isBookingScoped) ?? []}
 							/>
 						</CardContent>
 					</Card>

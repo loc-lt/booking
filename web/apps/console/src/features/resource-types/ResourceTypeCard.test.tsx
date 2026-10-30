@@ -25,6 +25,11 @@ const PHONE_BOOTH_TYPE: ResourceType = {
 	fields: [
 		{ key: 'has_phone_charger', label: 'Has phone charger', type: 'boolean', required: true },
 	],
+	flowConfig: {
+		confirmation: 'instant',
+		checkIn: { required: true, opensMinutesBefore: 15, noShowAfterMinutes: 15 },
+		cancellation: { allowedUntilMinutesBefore: 60 },
+	},
 	createdAt: '2026-10-28T09:00:00+07:00',
 	updatedAt: '2026-10-28T09:00:00+07:00',
 };

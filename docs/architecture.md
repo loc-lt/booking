@@ -47,9 +47,10 @@ booking-core/
 ├── core/api/                 Flask app: modules/, worker/, migrations/, tests/
 ├── web/                      pnpm workspace: shared packages and the two apps
 │   ├── packages/             shared frontend: api-client, ui, custom-fields, rules-editor, booking-ui, app-kit
-│   └── apps/
-│       ├── console/          operators: sites, resource types, fields, rules, flows, approvals
-│       └── member/           members: search, book, my bookings, check in, cancel
+│   ├── apps/
+│   │   ├── console/          operators: sites, resource types, fields, rules, flows, approvals
+│   │   └── member/           members: search, book, my bookings, check in, cancel
+│   └── mock-server/          local stand-in API: runs the apps' shared mock data as one real server, so console and member see each other's changes before core/api exists for a feature
 ├── seeds/                    demo tenants as configuration data
 ├── contracts/openapi.yaml    the API contract
 ├── infra/                    Dockerfiles, Compose files, Caddyfile
@@ -62,6 +63,7 @@ booking-core/
 - **The apps are treated like a product:** they use only package entry points and the public API. No demo-only endpoints. If they need something, it goes into a package or the API, where products get it too.
 - **Seeds are configuration, never code.**
 - **The console is not throwaway:** configuring types, fields, rules and flows is the same for every product, so its building blocks live in `web/packages/`.
+- **`web/mock-server` is dev-only and never deployed:** it runs the exact same scenario logic as each app's in-browser MSW mocks, but as one real local server, so console and member can share data before `core/api` implements a feature. See [frontend.md](frontend.md)'s "Shared mock server".
 
 ## How products use the core
 

@@ -6,6 +6,7 @@
 
  * OpenAPI spec version: 1
  */
+import type { Uuid } from "./uuid";
 
 /**
  * Only the properties relevant to the field's type are set.
@@ -19,4 +20,7 @@ export interface FieldValidation {
   multipleOf?: number;
   minItems?: number;
   maxItems?: number;
+  /** Required for reference fields: the resource type a reference value must belong to (e.g. a meeting room's "primary table" field, scoped to the "table" resource type).
+   */
+  targetResourceTypeId?: Uuid;
 }

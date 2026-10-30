@@ -1,6 +1,6 @@
 import type { FieldDefinition } from '@booking-core/api-client';
 import { Label } from '@booking-core/ui';
-import { CustomFieldValueInput } from './CustomFieldValueInput';
+import { CustomFieldValueInput, type ReferenceOption } from './CustomFieldValueInput';
 
 export interface CustomFieldValuesEditorProps {
 	fields: FieldDefinition[];
@@ -8,6 +8,8 @@ export interface CustomFieldValuesEditorProps {
 	onChange: (next: Record<string, unknown>) => void;
 	/** Field key -> error message, e.g. from a VALIDATION_FAILED response. */
 	errors?: Record<string, string>;
+	/** Candidate resources for `reference` fields, keyed by target resource type id. */
+	referenceOptions?: Record<string, ReferenceOption[]>;
 }
 
 /** Renders one input per custom field, for filling in a resource's field values. */
@@ -16,6 +18,7 @@ export function CustomFieldValuesEditor({
 	values,
 	onChange,
 	errors,
+	referenceOptions,
 }: CustomFieldValuesEditorProps) {
 	function setValue(key: string, value: unknown) {
 		onChange({ ...values, [key]: value });
@@ -33,6 +36,7 @@ export function CustomFieldValuesEditor({
 								field={field}
 								value={values[field.key]}
 								onChange={(value) => setValue(field.key, value)}
+								referenceOptions={referenceOptions}
 							/>
 							<Label htmlFor={id}>
 								{field.label}
@@ -53,6 +57,7 @@ export function CustomFieldValuesEditor({
 							field={field}
 							value={values[field.key]}
 							onChange={(value) => setValue(field.key, value)}
+							referenceOptions={referenceOptions}
 						/>
 						{field.help && <p className='text-muted-foreground text-xs'>{field.help}</p>}
 						{errors?.[field.key] && <p className='text-destructive text-sm'>{errors[field.key]}</p>}

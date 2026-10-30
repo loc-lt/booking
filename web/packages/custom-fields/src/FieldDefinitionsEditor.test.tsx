@@ -3,13 +3,23 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
-import { FieldDefinitionsEditor } from './FieldDefinitionsEditor';
+import { FieldDefinitionsEditor, type ResourceTypeOption } from './FieldDefinitionsEditor';
 
-function Harness({ initial }: { initial: FieldDefinition[] }) {
+function Harness({
+	initial,
+	resourceTypeOptions = [],
+}: {
+	initial: FieldDefinition[];
+	resourceTypeOptions?: ResourceTypeOption[];
+}) {
 	const [value, setValue] = useState(initial);
 	return (
 		<div>
-			<FieldDefinitionsEditor value={value} onChange={setValue} />
+			<FieldDefinitionsEditor
+				value={value}
+				onChange={setValue}
+				resourceTypeOptions={resourceTypeOptions}
+			/>
 			<pre data-testid='value'>{JSON.stringify(value)}</pre>
 		</div>
 	);
@@ -87,5 +97,49 @@ describe('FieldDefinitionsEditor', () => {
 		await selectFieldType(user, 'Yes / no');
 
 		expect(currentFields()[0]?.validation).toBeUndefined();
+	});
+
+	it('sets the target resource type when one is chosen for a reference field', async () => {
+		const user = userEvent.setup();
+		render(
+			<Harness
+				initial={[{ key: 'k', label: 'K', type: 'reference', required: false }]}
+				resourceTypeOptions={[{ value: 'table-type', label: 'Table' }]}
+			/>,
+		);
+
+		await user.click(screen.getByLabelText('References'));
+		await user.click(await screen.findByRole('option', { name: 'Table' }));
+
+		expect(currentFields()[0]?.validation?.targetResourceTypeId).toBe('table-type');
+	});
+
+	it('clears the target resource type when switching a field away from reference', async () => {
+		const user = userEvent.setup();
+		render(
+			<Harness
+				initial={[
+					{
+						key: 'k',
+						label: 'K',
+						type: 'reference',
+						required: false,
+						validation: { targetResourceTypeId: 'table-type' },
+					},
+				]}
+				resourceTypeOptions={[{ value: 'table-type', label: 'Table' }]}
+			/>,
+		);
+
+		await selectFieldType(user, 'Integer');
+
+		expect(currentFields()[0]?.validation).toBeUndefined();
+	});
+
+	it('asks for another resource type first when none exist yet for a reference field to target', () => {
+		render(<Harness initial={[{ key: 'k', label: 'K', type: 'reference', required: false }]} />);
+
+		expect(screen.getByText(/Create another resource type first/)).toBeTruthy();
+		expect(screen.queryByLabelText('References')).toBeNull();
 	});
 });

@@ -4,6 +4,8 @@ export interface RuntimeConfig {
 	apiMode: 'mock' | 'real';
 	posthogKey: string;
 	sentryDsn: string;
+	/** How long a query stays fresh before TanStack Query refetches it. Falls back to DEFAULT_STALE_TIME_MINUTES (queryClient.ts) when unset. */
+	staleTimeMinutes?: number;
 }
 
 declare global {

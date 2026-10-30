@@ -25,13 +25,17 @@ afterAll(() => server.close());
 
 describe('ResourceAvailability', () => {
 	it('shows a loading state before slots arrive', () => {
-		renderWithQueryClient(<ResourceAvailability resourceId='r1' resourceTypeId='type-1' />);
+		renderWithQueryClient(
+			<ResourceAvailability resourceId='r1' resourceTypeId='type-1' fields={[]} />,
+		);
 
 		expect(document.querySelector('[data-slot="skeleton"]')).toBeTruthy();
 	});
 
 	it('renders the resulting slots, free and taken', async () => {
-		renderWithQueryClient(<ResourceAvailability resourceId='r1' resourceTypeId='type-1' />);
+		renderWithQueryClient(
+			<ResourceAvailability resourceId='r1' resourceTypeId='type-1' fields={[]} />,
+		);
 
 		expect(await screen.findByText(/9:00/)).toBeTruthy();
 		const takenButton = screen.getByText(/9:30/).closest('button') as HTMLButtonElement;
@@ -40,7 +44,9 @@ describe('ResourceAvailability', () => {
 
 	it('lets a free slot be selected', async () => {
 		const user = userEvent.setup();
-		renderWithQueryClient(<ResourceAvailability resourceId='r1' resourceTypeId='type-1' />);
+		renderWithQueryClient(
+			<ResourceAvailability resourceId='r1' resourceTypeId='type-1' fields={[]} />,
+		);
 
 		const freeButton = (await screen.findByText(/9:00/)).closest('button') as HTMLButtonElement;
 		const classNameBeforeSelection = freeButton.className;
@@ -58,7 +64,9 @@ describe('ResourceAvailability', () => {
 				),
 			),
 		);
-		renderWithQueryClient(<ResourceAvailability resourceId='r1' resourceTypeId='type-1' />);
+		renderWithQueryClient(
+			<ResourceAvailability resourceId='r1' resourceTypeId='type-1' fields={[]} />,
+		);
 
 		expect(await screen.findByText("Couldn't load availability (NOT_FOUND).")).toBeTruthy();
 	});

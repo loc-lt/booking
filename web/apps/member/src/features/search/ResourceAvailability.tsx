@@ -1,7 +1,15 @@
-import { ApiError, type AvailabilitySlot, useSearchAvailability } from '@booking-core/api-client';
+import {
+	ApiError,
+	type AvailabilitySlot,
+	type Booking,
+	type FieldDefinition,
+	useSearchAvailability,
+} from '@booking-core/api-client';
 import { AvailabilityGrid } from '@booking-core/booking-ui';
 import { Skeleton } from '@booking-core/ui';
+import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
+import { BookingForm } from './BookingForm';
 
 // Sites and a real date picker aren't built yet, so availability is shown for this fixed
 // demo site and day.
@@ -11,10 +19,13 @@ const DEMO_DATE = '2026-12-15';
 export function ResourceAvailability({
 	resourceId,
 	resourceTypeId,
+	fields,
 }: {
 	resourceId: string;
 	resourceTypeId: string;
+	fields: FieldDefinition[];
 }) {
+	const navigate = useNavigate();
 	const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot>();
 	const { data, isPending, error } = useSearchAvailability({
 		siteId: DEMO_SITE_ID,
@@ -22,6 +33,11 @@ export function ResourceAvailability({
 		resourceId,
 		date: DEMO_DATE,
 	});
+
+	function handleBooked(booking: Booking) {
+		setSelectedSlot(undefined);
+		navigate({ to: '/bookings/$bookingId', params: { bookingId: booking.id } });
+	}
 
 	if (isPending) {
 		return <Skeleton className='h-9 w-full' />;
@@ -33,10 +49,23 @@ export function ResourceAvailability({
 	}
 
 	return (
-		<AvailabilityGrid
-			slots={data.slots}
-			selectedSlot={selectedSlot}
-			onSelectSlot={setSelectedSlot}
-		/>
+		<div className='flex flex-col gap-3'>
+			<AvailabilityGrid
+				slots={data.slots}
+				selectedSlot={selectedSlot}
+				onSelectSlot={setSelectedSlot}
+			/>
+			{selectedSlot && (
+				<BookingForm
+					resourceId={resourceId}
+					resourceTypeId={resourceTypeId}
+					siteId={DEMO_SITE_ID}
+					date={DEMO_DATE}
+					fields={fields}
+					slot={selectedSlot}
+					onBooked={handleBooked}
+				/>
+			)}
+		</div>
 	);
 }

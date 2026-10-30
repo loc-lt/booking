@@ -6,4 +6,5 @@ export type { BookingStatusBadgeProps } from './BookingStatusBadge';
 export { BOOKING_STATUS_LABELS, BookingStatusBadge } from './BookingStatusBadge';
 export type { BookingTimelineProps } from './BookingTimeline';
 export { BookingTimeline } from './BookingTimeline';
+export { isCheckInOpen } from './checkInWindow';
 export { formatTimeRange } from './formatDateTime';
