@@ -11,23 +11,17 @@ import {
 	CardContent,
 	CardHeader,
 	CardTitle,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
+	ClearableSelect,
 	Skeleton,
 } from '@booking-core/ui';
 import { useEffect, useState } from 'react';
 import { ResourceAvailability } from './ResourceAvailability';
 
-const ALL_TYPES = 'all';
-
 export function SearchPage() {
-	const [resourceTypeId, setResourceTypeId] = useState(ALL_TYPES);
+	const [resourceTypeId, setResourceTypeId] = useState('');
 	const resourceTypesQuery = useListResourceTypes();
 	const resourcesQuery = useListResources({
-		resourceTypeId: resourceTypeId === ALL_TYPES ? undefined : resourceTypeId,
+		resourceTypeId: resourceTypeId === '' ? undefined : resourceTypeId,
 	});
 	// Unfiltered, to resolve `reference` fields' values regardless of the selected type.
 	const allResourcesQuery = useListResources();
@@ -41,7 +35,7 @@ export function SearchPage() {
 	useEffect(() => {
 		if (resourcesQuery.data) {
 			trackEvent('booking_search_submitted', {
-				resourceTypeId: resourceTypeId === ALL_TYPES ? undefined : resourceTypeId,
+				resourceTypeId: resourceTypeId === '' ? undefined : resourceTypeId,
 				resultsCount: resourcesQuery.data.data.length,
 			});
 		}
@@ -50,32 +44,23 @@ export function SearchPage() {
 	const resourceTypesById = new Map<string, ResourceType>(
 		(resourceTypesQuery.data?.data ?? []).map((type) => [type.id, type]),
 	);
-	const typeSelectItems = [
-		{ value: ALL_TYPES, label: 'All resource types' },
-		...(resourceTypesQuery.data?.data ?? []).map((type) => ({ value: type.id, label: type.label })),
-	];
+	const resourceTypeOptions = (resourceTypesQuery.data?.data ?? []).map((type) => ({
+		label: type.label,
+		value: type.id,
+	}));
 
 	return (
 		<div className='mx-auto flex max-w-2xl flex-col gap-4 p-6'>
 			<h1 className='text-xl font-semibold'>Search resources</h1>
 
-			<Select
-				items={typeSelectItems}
+			<ClearableSelect
+				className='w-56'
+				clearLabel='Clear'
+				emptyLabel='All resource types'
+				onValueChange={setResourceTypeId}
+				options={resourceTypeOptions}
 				value={resourceTypeId}
-				onValueChange={(value) => setResourceTypeId(value ?? ALL_TYPES)}
-			>
-				<SelectTrigger className='w-56'>
-					<SelectValue />
-				</SelectTrigger>
-				<SelectContent>
-					<SelectItem value={ALL_TYPES}>All resource types</SelectItem>
-					{resourceTypesQuery.data?.data.map((type) => (
-						<SelectItem key={type.id} value={type.id}>
-							{type.label}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
+			/>
 
 			{resourcesQuery.isPending && (
 				<div className='flex flex-col gap-2'>
