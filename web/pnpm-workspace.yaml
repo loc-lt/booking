@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - mock-server
+  - storybook
 allowBuilds:
   '@scarf/scarf': false
   core-js: true

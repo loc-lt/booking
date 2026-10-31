@@ -14,6 +14,7 @@ For anyone working in `web/apps/` or `web/packages/`. Shared rules live in the r
 | Tracking, errors | PostHog and Sentry, set up by `app-kit` |
 | Unit and component tests | Vitest, React Testing Library |
 | End-to-end tests | Playwright |
+| Component preview | Storybook (`web/storybook`), one instance for every package and app |
 
 ### Two validators, two jobs
 
@@ -76,6 +77,15 @@ From `web/`, run `pnpm --filter console dev` and `pnpm --filter member dev` nati
 
 Environment values are read at runtime from `window.__CONFIG__`, never from `import.meta.env`, so one image runs everywhere.
 
+## Storybook
+
+One Storybook instance (`web/storybook`) previews every component in `web/packages/*` and `web/apps/*` in isolation, without wiring it into a page or running a full app. Run it with `pnpm --filter storybook dev` (serves `http://localhost:6006`).
+
+- A story lives next to the component it covers, as `<Component>.stories.tsx` — not in `web/storybook`, which holds only the Storybook config (`.storybook/main.ts`, `.storybook/preview.tsx`).
+- `msw-storybook-addon` intercepts requests with the same scenario handlers apps use (`handlers` from `@booking-core/api-client`), reset before every story — so a story can exercise a real mutation (approve a booking, cancel it) and see it actually change, the same as in the app. Give a fixture the same id as a seeded record (see `bookingsOperations.ts`) when a story needs to act on it.
+- `.storybook/preview.tsx` wraps every story in a `QueryClientProvider` and `TooltipProvider`, matching what `CoreAppProvider` does for a real app.
+- Add a component's story once it's built and confirmed, not while it's still taking shape — see step 4 of ["Testing: features first, tests before commit"](#testing-features-first-tests-before-commit) below.
+
 ## Testing: features first, tests before commit
 
 Tests written while a feature is still taking shape usually encode the wrong behaviour and get thrown away. So:
@@ -83,10 +93,11 @@ Tests written while a feature is still taking shape usually encode the wrong beh
 1. **Build the feature.** Don't create or edit test files yet.
 2. **Hand over for verification.** Tell the developer exactly what to check: screens, loading, empty and error states, and each error code the feature handles.
 3. **The developer verifies** and confirms or asks for changes. Repeat until confirmed.
-4. **Propose test cases before committing:** a short list, each with a name, what it covers, and its type (unit, component, end-to-end). Prioritise user-visible behaviour, handled error codes, and edge cases found during verification. Skip layout, styling and shadcn/ui itself. Hold end-to-end tests until the flow they cover is mostly built — a screen built alone still gets unit and component tests now.
-5. **The developer approves or edits the list.**
-6. **Write and run the tests** with lint and type checks. If a test fails because the feature is wrong, fix the feature. If a test expects the wrong thing, flag it. Update existing tests only for behaviour the developer confirmed, and say so.
-7. **Commit the feature and its tests together.**
+4. **Add or update Storybook stories** for any new or changed component, now that it's confirmed — not earlier, while it's still taking shape (same reasoning as tests before it). See [Storybook](#storybook) above.
+5. **Propose test cases before committing:** a short list, each with a name, what it covers, and its type (unit, component, end-to-end). Prioritise user-visible behaviour, handled error codes, and edge cases found during verification. Skip layout, styling and shadcn/ui itself. Hold end-to-end tests until the flow they cover is mostly built — a screen built alone still gets unit and component tests now.
+6. **The developer approves or edits the list.**
+7. **Write and run the tests** with lint and type checks. If a test fails because the feature is wrong, fix the feature. If a test expects the wrong thing, flag it. Update existing tests only for behaviour the developer confirmed, and say so.
+8. **Commit the feature, its stories and its tests together.**
 
 The developer can ask for tests first when it helps, e.g. a tricky pure function.
 

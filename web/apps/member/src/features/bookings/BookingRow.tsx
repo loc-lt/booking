@@ -6,7 +6,8 @@ import {
 } from '@booking-core/api-client';
 import { trackEvent } from '@booking-core/app-kit';
 import { BookingCard, BookingTimeline, isCheckInOpen } from '@booking-core/booking-ui';
-import { Button } from '@booking-core/ui';
+import { Button, ConfirmationModal } from '@booking-core/ui';
+import { useState } from 'react';
 
 const CANCELLABLE_STATUSES = new Set(['awaiting_payment', 'pending_approval', 'confirmed']);
 
@@ -23,12 +24,26 @@ export function BookingRow({
 	onToggle: () => void;
 	onChanged: () => void;
 }) {
+	const [confirmingCancel, setConfirmingCancel] = useState(false);
 	const cancelBooking = useCancelBooking();
 	const checkInBooking = useCheckInBooking();
 
 	const canCheckIn = isCheckInOpen(booking, new Date());
 	const canCancel = CANCELLABLE_STATUSES.has(booking.status);
 	const error = checkInBooking.error ?? cancelBooking.error;
+
+	function handleCancel() {
+		cancelBooking.mutate(
+			{ bookingId: booking.id },
+			{
+				onSuccess: () => {
+					trackEvent('booking_cancelled', { resourceTypeId: booking.resourceTypeId });
+					setConfirmingCancel(false);
+					onChanged();
+				},
+			},
+		);
+	}
 
 	return (
 		<div className='flex flex-col gap-2'>
@@ -70,17 +85,7 @@ export function BookingRow({
 								disabled={cancelBooking.isPending}
 								onClick={(event) => {
 									event.stopPropagation();
-									cancelBooking.mutate(
-										{ bookingId: booking.id },
-										{
-											onSuccess: () => {
-												trackEvent('booking_cancelled', {
-													resourceTypeId: booking.resourceTypeId,
-												});
-												onChanged();
-											},
-										},
-									);
+									setConfirmingCancel(true);
 								}}
 							>
 								Cancel
@@ -88,6 +93,17 @@ export function BookingRow({
 						)}
 					</div>
 				}
+			/>
+			<ConfirmationModal
+				cancelLabel='Keep booking'
+				confirmLabel='Cancel booking'
+				dangerous
+				description='The member will need to book again if they still need the resource.'
+				isConfirming={cancelBooking.isPending}
+				onConfirm={handleCancel}
+				onOpenChange={setConfirmingCancel}
+				open={confirmingCancel}
+				title='Cancel booking?'
 			/>
 			{error && (
 				<p className='text-destructive text-sm'>

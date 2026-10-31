@@ -6,15 +6,14 @@ import {
 	useSearchAvailability,
 } from '@booking-core/api-client';
 import { AvailabilityGrid } from '@booking-core/booking-ui';
-import { Skeleton } from '@booking-core/ui';
+import { DatePicker, Skeleton } from '@booking-core/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { BookingForm } from './BookingForm';
 
-// Sites and a real date picker aren't built yet, so availability is shown for this fixed
-// demo site and day.
+// A site picker isn't built yet, so availability is always shown for this fixed demo site.
 const DEMO_SITE_ID = '0193f4c2-8b4c-7d4f-9f3b-2a0c7d6e5f4b';
-const DEMO_DATE = '2026-12-15';
+const DEFAULT_DATE = '2026-12-15';
 
 export function ResourceAvailability({
 	resourceId,
@@ -26,12 +25,13 @@ export function ResourceAvailability({
 	fields: FieldDefinition[];
 }) {
 	const navigate = useNavigate();
+	const [date, setDate] = useState(DEFAULT_DATE);
 	const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot>();
 	const { data, isPending, error } = useSearchAvailability({
-		siteId: DEMO_SITE_ID,
-		resourceTypeId,
+		date,
 		resourceId,
-		date: DEMO_DATE,
+		resourceTypeId,
+		siteId: DEMO_SITE_ID,
 	});
 
 	function handleBooked(booking: Booking) {
@@ -39,33 +39,52 @@ export function ResourceAvailability({
 		navigate({ to: '/bookings/$bookingId', params: { bookingId: booking.id } });
 	}
 
-	if (isPending) {
-		return <Skeleton className='h-9 w-full' />;
-	}
-
-	if (error) {
-		const code = error instanceof ApiError ? error.code : 'UNKNOWN_ERROR';
-		return <p className='text-destructive text-sm'>Couldn't load availability ({code}).</p>;
-	}
-
 	return (
 		<div className='flex flex-col gap-3'>
-			<AvailabilityGrid
-				slots={data.slots}
-				selectedSlot={selectedSlot}
-				onSelectSlot={setSelectedSlot}
+			<DatePicker
+				className='w-40'
+				clearLabel='Clear'
+				onValueChange={(value) => {
+					// Clearing just re-shows the last selected date instead of an empty
+					// query — the API requires a date, so there's no "no date" state.
+					if (value === '') {
+						return;
+					}
+
+					setDate(value);
+					setSelectedSlot(undefined);
+				}}
+				placeholder='Pick a date'
+				submitLabel='Apply'
+				value={date}
 			/>
-			{selectedSlot && (
-				<BookingForm
-					resourceId={resourceId}
-					resourceTypeId={resourceTypeId}
-					siteId={DEMO_SITE_ID}
-					date={DEMO_DATE}
-					fields={fields}
-					slot={selectedSlot}
-					onBooked={handleBooked}
-				/>
-			)}
+
+			{isPending ? (
+				<Skeleton className='h-9 w-full' />
+			) : error ? (
+				<p className='text-destructive text-sm'>
+					Couldn't load availability ({error instanceof ApiError ? error.code : 'UNKNOWN_ERROR'}).
+				</p>
+			) : data ? (
+				<>
+					<AvailabilityGrid
+						slots={data.slots}
+						selectedSlot={selectedSlot}
+						onSelectSlot={setSelectedSlot}
+					/>
+					{selectedSlot && (
+						<BookingForm
+							resourceId={resourceId}
+							resourceTypeId={resourceTypeId}
+							siteId={DEMO_SITE_ID}
+							date={date}
+							fields={fields}
+							slot={selectedSlot}
+							onBooked={handleBooked}
+						/>
+					)}
+				</>
+			) : null}
 		</div>
 	);
 }

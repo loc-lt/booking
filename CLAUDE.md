@@ -83,6 +83,7 @@ Not in these docs: personal plans, secrets, task tracking (use the issue tracker
 - [ ] Contract, generated client and backend agree (pipeline green).
 - [ ] Loading, empty and error states handled (frontend).
 - [ ] Tracking events added and listed in [docs/analytics.md](docs/analytics.md) (frontend).
+- [ ] Storybook stories added or updated for new or changed components, once confirmed (frontend, [docs/frontend.md](docs/frontend.md)).
 - [ ] Tests written per the frontend or backend guide, and passing.
 - [ ] No product-specific code.
 - [ ] Docs updated if anything they describe changed.
