@@ -6,6 +6,7 @@ node_modules/
 dist/
 build/
 *.tsbuildinfo
+storybook-static/
 
 # Python
 __pycache__/

@@ -1,0 +1,36 @@
+{
+  "name": "storybook",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "storybook dev -p 6006",
+    "build": "storybook build"
+  },
+  "dependencies": {
+    "@booking-core/api-client": "workspace:*",
+    "@booking-core/booking-ui": "workspace:*",
+    "@booking-core/custom-fields": "workspace:*",
+    "@booking-core/ui": "workspace:*",
+    "@tanstack/react-query": "^5.105.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@storybook/react-vite": "^10.6.5",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "msw": "^2.15.0",
+    "msw-storybook-addon": "^3.0.3",
+    "storybook": "^10.6.5",
+    "typescript": "^5.7.2",
+    "vite": "^8.3.5"
+  },
+  "msw": {
+    "workerDirectory": [
+      "public"
+    ]
+  }
+}
