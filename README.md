@@ -706,7 +706,6 @@ One Storybook instance (`web/storybook`) previews every component in `web/packag
 - A story lives next to the component it covers, as `<Component>.stories.tsx` — not in `web/storybook`, which holds only the Storybook config (`.storybook/main.ts`, `.storybook/preview.tsx`).
 - `msw-storybook-addon` intercepts requests with the same scenario handlers apps use (`handlers` from `@booking-core/api-client`), reset before every story — so a story can exercise a real mutation (approve a booking, cancel it) and see it actually change, the same as in the app. Give a fixture the same id as a seeded record (see `bookingsOperations.ts`) when a story needs to act on it.
 - `.storybook/preview.tsx` wraps every story in a `QueryClientProvider` and `TooltipProvider`, matching what `CoreAppProvider` does for a real app.
-- See [decisions.md](#decision-log) (D-001) for why this is one instance instead of one per package.
 - Add a component's story once it's built and confirmed, not while it's still taking shape — see step 4 of ["Testing: features first, tests before commit"](#testing-features-first-tests-before-commit) below.
 
 ### Testing: features first, tests before commit
@@ -985,5 +984,4 @@ Every decision that affects more than one person is recorded here, in the same m
 
 | ID | Date | Decision | Why | Rejected |
 | --- | --- | --- | --- | --- |
-| D-001 | 2026-10-31 | One Storybook instance (`web/storybook`, `@storybook/react-vite`) scans `web/packages/*/src` and `web/apps/*/src` for `*.stories.tsx`, instead of a Storybook per package. `msw-storybook-addon` reuses the existing scenario handlers from `@booking-core/api-client` so component stories can exercise real mutations against the same mock data apps use. | Lets engineers preview and test a component in isolation, without wiring it into a page, while it's being changed. One instance avoids duplicating Storybook's config and dependencies across six workspace members; reusing the scenario handlers avoids a second, divergent mock layer. | A Storybook per package — rejected as unnecessary duplication for an internal, non-published monorepo. |
 
