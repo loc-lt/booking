@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@booking-core/api-client": "workspace:*",
+    "@booking-core/ui": "workspace:*",
     "@sentry/react": "^11.9.0",
     "msw": "^2.15.0",
     "posthog-js": "^1.438.24"
