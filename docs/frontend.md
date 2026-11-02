@@ -33,6 +33,7 @@ Zod can't describe fields that only exist in a tenant's configuration. Ajv valid
 - **Each package exports through its `index.ts`.** Nothing imports another package's internals; packages never import from `web/apps/`.
 - **Inside an app:** one folder per feature under `src/features/<feature>/`, with its components, hooks and tests together.
 - **shadcn/ui components** live in `web/packages/ui`, are added with its CLI, and may be edited.
+- **File names are kebab-case** (`booking-card.tsx`, `use-booking-calendar-data.ts`), across packages and apps alike ([D-001](decisions.md)). `index.ts` entry points keep their name.
 
 ### Rules for packages
 

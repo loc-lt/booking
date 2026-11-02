@@ -1,1 +1,1 @@
-export { ApprovalsPage } from './ApprovalsPage';
+export { ApprovalsPage } from './approvals-page';
