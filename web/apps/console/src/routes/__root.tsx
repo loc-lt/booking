@@ -1,27 +1,31 @@
-import { createRootRoute, Link, Outlet } from '@tanstack/react-router';
+import { useTheme } from '@booking-core/app-kit';
+import { ThemeSwitcher } from '@booking-core/ui';
+import { createRootRoute, Outlet, useLocation } from '@tanstack/react-router';
+import { AppHeader } from '@/components/layout/app-header';
+import { AppShell } from '@/components/layout/app-shell';
+import { AppSidebar } from '@/components/layout/app-sidebar';
+import { NAV_ITEMS } from '@/components/layout/nav-items';
 
 export const Route = createRootRoute({
 	component: RootLayout,
 });
 
 function RootLayout() {
+	const location = useLocation();
+	const { setTheme, theme } = useTheme();
+	const currentItem = NAV_ITEMS.find((item) => item.to === location.pathname);
+
 	return (
-		<div className='min-h-dvh'>
-			<header className='flex items-center gap-4 border-b p-4'>
-				<span className='font-semibold'>Booking Core · Console</span>
-				<nav className='flex gap-3 text-sm'>
-					<Link to='/resource-types' activeProps={{ className: 'font-medium' }}>
-						Resource types
-					</Link>
-					<Link to='/approvals' activeProps={{ className: 'font-medium' }}>
-						Approvals
-					</Link>
-					<Link to='/bookings' activeProps={{ className: 'font-medium' }}>
-						Bookings
-					</Link>
-				</nav>
-			</header>
+		<AppShell
+			header={
+				<AppHeader
+					actions={<ThemeSwitcher onThemeChange={setTheme} theme={theme} />}
+					title={currentItem?.label ?? 'Booking Core · Console'}
+				/>
+			}
+			sidebar={<AppSidebar />}
+		>
 			<Outlet />
-		</div>
+		</AppShell>
 	);
 }
