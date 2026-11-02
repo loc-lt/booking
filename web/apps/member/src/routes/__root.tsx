@@ -13,6 +13,9 @@ function RootLayout() {
 					<Link to='/' activeProps={{ className: 'font-medium' }}>
 						Search
 					</Link>
+					<Link to='/booking-calendar' activeProps={{ className: 'font-medium' }}>
+						Calendar
+					</Link>
 					<Link to='/bookings' activeProps={{ className: 'font-medium' }}>
 						My bookings
 					</Link>

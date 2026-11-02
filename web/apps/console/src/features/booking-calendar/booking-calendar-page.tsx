@@ -1,81 +1,54 @@
 import {
-	ApiError,
 	type Booking,
 	getListBookingsQueryKey,
 	useApproveBooking,
 	useCancelBooking,
 	useCheckInBooking,
-	useCreateBooking,
 	useRejectBooking,
 } from '@booking-core/api-client';
 import {
-	BookingCreatePanel,
 	BookingDetailsPanel,
 	BookingMonthGrid,
 	BookingTimeGrid,
 	CalendarToolbar,
-	type CalendarViewMode,
-	getVisibleDays,
-	navigateCalendar,
+	getErrorCode,
 	ResourceSelect,
-	type TimeRange,
+	toDateKey,
+	toLocalDate,
+	useBookingCalendarNavigation,
 } from '@booking-core/booking-ui';
 import { Calendar, Card, CardContent, CardHeader, Icon, Skeleton } from '@booking-core/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useState } from 'react';
-import { useBookingCalendarData } from './use-booking-calendar-data';
+import { useCallback, useState } from 'react';
 
-type Panel = { mode: 'create'; range: TimeRange } | { mode: 'details'; booking: Booking } | null;
-
-function toDateKey(date: Date): string {
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	return `${year}-${month}-${day}`;
-}
-
-function toLocalDate(date: string): Date {
-	const [year, month, day] = date.split('-').map(Number);
-	return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
-}
-
-function errorCode(error: unknown): string {
-	return error instanceof ApiError ? error.code : 'UNKNOWN_ERROR';
-}
-
-/** Operator calendar — pick a resource, browse its bookings by Day/Week/Month, and book a new slot by dragging on the grid. */
+/** Operator calendar — pick a resource and browse its bookings by Day/Week/Month; view-only, with cancel, check-in, approve and reject from a booking's details. */
 export function BookingCalendarPage() {
-	const [selectedResourceId, setSelectedResourceId] = useState<string>();
-	const [viewMode, setViewMode] = useState<CalendarViewMode>('week');
-	const [referenceDate, setReferenceDate] = useState(() => toDateKey(new Date()));
-	const [panel, setPanel] = useState<Panel>(null);
-	// The grid's highlight tracks this separately from `panel.range` (which only
-	// seeds the create panel once, on a fresh drag) so adjusting the date/time
-	// fields there updates the highlight live without resetting the panel.
-	const [highlightRange, setHighlightRange] = useState<TimeRange | null>(null);
-	const [createValues, setCreateValues] = useState<Record<string, unknown>>({});
+	const [selectedBooking, setSelectedBooking] = useState<Booking>();
 
-	const { bookingsByDay, fields, isLoading, resources, selectedResource } = useBookingCalendarData(
+	const {
+		bookingsByDay,
+		fields,
+		isLoading,
+		resources,
+		selectedResource,
 		selectedResourceId,
-		referenceDate,
 		viewMode,
-	);
+		referenceDate,
+		setReferenceDate,
+		visibleDays,
+		toolbarTitle,
+		handleResourceChange,
+		handleViewModeChange,
+		handleSelectDay,
+		handleNavigate,
+		handleToday,
+	} = useBookingCalendarNavigation({ onNavigate: () => setSelectedBooking(undefined) });
 
 	const queryClient = useQueryClient();
-	const createBooking = useCreateBooking();
 	const cancelBooking = useCancelBooking();
 	const checkInBooking = useCheckInBooking();
 	const approveBooking = useApproveBooking();
 	const rejectBooking = useRejectBooking();
-
-	// Pick the first resource once the list loads, if nothing's selected yet.
-	useEffect(() => {
-		if (!selectedResourceId && resources.length > 0) {
-			setSelectedResourceId(resources[0]?.id);
-		}
-	}, [resources, selectedResourceId]);
-
-	const visibleDays = getVisibleDays(referenceDate, viewMode);
 
 	// Invalidates every cached bookings list, not just the one backing the
 	// current view — Day/Week and Month each query a different date range
@@ -86,73 +59,8 @@ export function BookingCalendarPage() {
 		queryClient.invalidateQueries({ queryKey: getListBookingsQueryKey() });
 	}, [queryClient]);
 
-	const handleResourceChange = (resourceId: string) => {
-		setSelectedResourceId(resourceId);
-		setPanel(null);
-		setHighlightRange(null);
-	};
-
-	const handleViewModeChange = (mode: CalendarViewMode) => {
-		setViewMode(mode);
-		setPanel(null);
-		setHighlightRange(null);
-	};
-
-	// Clicking a date in the Month grid drills into that single day, so the
-	// user lands straight on a focused Day-view grid to drag a booking on —
-	// same reasoning as clicking a date number in Google Calendar/Outlook.
-	const handleSelectDay = (day: string) => {
-		setViewMode('day');
-		setReferenceDate(day);
-		setPanel(null);
-		setHighlightRange(null);
-	};
-
-	const handleClearPanel = useCallback(() => {
-		setPanel(null);
-		setHighlightRange(null);
-		setCreateValues({});
-	}, []);
-
-	const handleSelectRange = (range: TimeRange) => {
-		setPanel({ mode: 'create', range });
-		setHighlightRange(range);
-	};
-
 	const handleSelectBooking = (booking: Booking) => {
-		setPanel({ mode: 'details', booking });
-		setHighlightRange(null);
-	};
-
-	const handleRangeChange = useCallback((range: TimeRange) => {
-		setHighlightRange(range);
-	}, []);
-
-	const handleNavigate = (direction: 1 | -1) => {
-		setReferenceDate((current) => navigateCalendar(current, viewMode, direction));
-	};
-
-	const handleToday = () => setReferenceDate(toDateKey(new Date()));
-
-	const handleCreateSubmit = (range: TimeRange) => {
-		if (!selectedResourceId) return;
-
-		createBooking.mutate(
-			{
-				data: {
-					resourceId: selectedResourceId,
-					start: range.start,
-					end: range.end,
-					customFieldValues: createValues,
-				},
-			},
-			{
-				onSuccess: () => {
-					handleClearPanel();
-					invalidateBookings();
-				},
-			},
-		);
+		setSelectedBooking(booking);
 	};
 
 	const handleCheckIn = (booking: Booking) => {
@@ -160,7 +68,7 @@ export function BookingCalendarPage() {
 			{ bookingId: booking.id },
 			{
 				onSuccess: (updated) => {
-					setPanel({ mode: 'details', booking: updated });
+					setSelectedBooking(updated);
 					invalidateBookings();
 				},
 			},
@@ -172,7 +80,7 @@ export function BookingCalendarPage() {
 			{ bookingId: booking.id },
 			{
 				onSuccess: (updated) => {
-					setPanel({ mode: 'details', booking: updated });
+					setSelectedBooking(updated);
 					invalidateBookings();
 				},
 			},
@@ -184,7 +92,7 @@ export function BookingCalendarPage() {
 			{ bookingId: booking.id },
 			{
 				onSuccess: (updated) => {
-					setPanel({ mode: 'details', booking: updated });
+					setSelectedBooking(updated);
 					invalidateBookings();
 				},
 			},
@@ -196,23 +104,18 @@ export function BookingCalendarPage() {
 			{ bookingId: booking.id, data: { reason } },
 			{
 				onSuccess: (updated) => {
-					setPanel({ mode: 'details', booking: updated });
+					setSelectedBooking(updated);
 					invalidateBookings();
 				},
 			},
 		);
 	};
 
-	const toolbarTitle = toLocalDate(referenceDate).toLocaleDateString(undefined, {
-		month: 'long',
-		year: 'numeric',
-	});
-
 	const detailsError =
 		cancelBooking.error || checkInBooking.error || approveBooking.error || rejectBooking.error ? (
 			<p className='text-destructive text-sm'>
 				Couldn't update the booking (
-				{errorCode(
+				{getErrorCode(
 					cancelBooking.error ??
 						checkInBooking.error ??
 						approveBooking.error ??
@@ -282,9 +185,9 @@ export function BookingCalendarPage() {
 								bookingsByDay={bookingsByDay}
 								days={visibleDays}
 								onSelectBooking={handleSelectBooking}
-								onSelectRange={handleSelectRange}
-								selectedBookingId={panel?.mode === 'details' ? panel.booking.id : undefined}
-								selectedRange={highlightRange}
+								onSelectRange={() => {}}
+								readOnly
+								selectedBookingId={selectedBooking?.id}
 							/>
 						)}
 					</CardContent>
@@ -294,45 +197,26 @@ export function BookingCalendarPage() {
 			<div className='w-full shrink-0 lg:w-80'>
 				<Card>
 					<CardContent>
-						{panel?.mode === 'create' ? (
-							<BookingCreatePanel
-								bookingsByDay={bookingsByDay}
-								error={
-									createBooking.error ? (
-										<p className='text-destructive text-sm'>
-											Couldn't book this slot ({errorCode(createBooking.error)}).
-										</p>
-									) : undefined
-								}
-								fields={fields}
-								initialRange={panel.range}
-								isSubmitting={createBooking.isPending}
-								onRangeChange={handleRangeChange}
-								onSubmit={handleCreateSubmit}
-								onValuesChange={setCreateValues}
-								values={createValues}
-							/>
-						) : panel?.mode === 'details' ? (
+						{selectedBooking ? (
 							<BookingDetailsPanel
-								booking={panel.booking}
+								booking={selectedBooking}
 								error={detailsError}
 								fields={fields}
 								isApproving={approveBooking.isPending}
 								isCancelling={cancelBooking.isPending}
 								isCheckingIn={checkInBooking.isPending}
 								isRejecting={rejectBooking.isPending}
-								onApprove={() => handleApprove(panel.booking)}
-								onCancel={() => handleCancel(panel.booking)}
-								onCheckIn={() => handleCheckIn(panel.booking)}
-								onReject={(reason) => handleReject(panel.booking, reason)}
+								onApprove={() => handleApprove(selectedBooking)}
+								onCancel={() => handleCancel(selectedBooking)}
+								onCheckIn={() => handleCheckIn(selectedBooking)}
+								onReject={(reason) => handleReject(selectedBooking, reason)}
 								resourceLabel={selectedResource?.label}
 							/>
 						) : (
 							<div className='flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-16 text-center'>
 								<Icon className='text-muted-foreground size-8' name='CalendarPlus' />
 								<p className='text-muted-foreground text-sm'>
-									Drag on the calendar to book a time, or click an existing booking to see its
-									details.
+									Click an existing booking to see its details.
 								</p>
 							</div>
 						)}
