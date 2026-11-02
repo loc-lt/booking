@@ -291,3 +291,8 @@ export function getResourceOp(resourceId: string): OperationResult<unknown> {
 export function findResource(resourceId: string): Resource | undefined {
 	return resources.find((resource) => resource.id === resourceId);
 }
+
+/** Plain lookup (not wrapped in an OperationResult) for other operations that need a resource type's live flow config, e.g. when creating a booking. */
+export function findResourceType(resourceTypeId: string): ResourceType | undefined {
+	return resourceTypes.find((type) => type.id === resourceTypeId);
+}

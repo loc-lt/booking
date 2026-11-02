@@ -7,7 +7,7 @@ import type {
 	RejectBookingRequest,
 	RuleReason,
 } from '../generated/models';
-import { findResource, type OperationResult } from './resourceTypesOperations';
+import { findResource, findResourceType, type OperationResult } from './resourceTypesOperations';
 
 /**
  * Transport-agnostic availability/booking operations: the same demo "backend"
@@ -235,21 +235,31 @@ export function createBookingOp(body: CreateBookingRequest): OperationResult<unk
 	// seed data, so fall back to its fixed type/site when the resource isn't found
 	// there (e.g. a type created via the console that hasn't added this resource).
 	const resource = findResource(body.resourceId);
+	const resourceTypeId = resource?.resourceTypeId ?? MEETING_ROOM_TYPE_ID;
+	const resourceType = findResourceType(resourceTypeId);
+	const appliedConfig: AppliedConfig = resourceType
+		? {
+				flowConfigVersion: resourceType.version,
+				ruleSetVersion: 1,
+				...resourceType.flowConfig,
+			}
+		: SEEDED_APPLIED_CONFIG;
+	const status = appliedConfig.confirmation === 'approval' ? 'pending_approval' : 'confirmed';
 	const now = new Date().toISOString();
 	const created: Booking = {
 		id: crypto.randomUUID(),
 		resourceId: body.resourceId,
-		resourceTypeId: resource?.resourceTypeId ?? MEETING_ROOM_TYPE_ID,
+		resourceTypeId,
 		siteId: resource?.siteId ?? DEMO_SITE_ID,
 		memberId: body.memberId ?? MEMBER_ID,
 		start: body.start,
 		end: body.end,
-		status: 'confirmed',
+		status,
 		customFieldValues: body.customFieldValues ?? {},
-		appliedConfig: SEEDED_APPLIED_CONFIG,
+		appliedConfig,
 		history: [
 			{
-				toStatus: 'confirmed',
+				toStatus: status,
 				occurredAt: now,
 				actor: { type: 'user', id: body.memberId ?? MEMBER_ID },
 			},
