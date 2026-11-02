@@ -1,2 +1,2 @@
-export { BookingConfirmationPage } from './BookingConfirmationPage';
-export { MyBookingsPage } from './MyBookingsPage';
+export { BookingConfirmationPage } from './booking-confirmation-page';
+export { MyBookingsPage } from './my-bookings-page';

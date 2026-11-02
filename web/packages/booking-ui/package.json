@@ -17,7 +17,9 @@
   },
   "dependencies": {
     "@booking-core/api-client": "workspace:*",
-    "@booking-core/ui": "workspace:*"
+    "@booking-core/custom-fields": "workspace:*",
+    "@booking-core/ui": "workspace:*",
+    "cn": "^0.5.0"
   },
   "peerDependencies": {
     "react": "^19.0.0"

@@ -1,1 +1,1 @@
-export { ResourceTypesPage } from './ResourceTypesPage';
+export { ResourceTypesPage } from './resource-types-page';
