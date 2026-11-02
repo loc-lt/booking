@@ -12,7 +12,15 @@ import {
 import type { TimeRange } from './booking-occupancy';
 import { isBlockingBooking } from './booking-occupancy';
 import { BOOKING_STATUS_LABELS } from './booking-status-badge';
+import { bookingStatusTone } from './booking-status-tone';
 import { formatTime } from './format-date-time';
+
+/** Left-accent + tint per status tone — an at-a-glance read before the label loads. */
+const BOOKING_BLOCK_TONE_CLASSES: Record<ReturnType<typeof bookingStatusTone>, string> = {
+	active: 'border-l-primary bg-primary/10',
+	pending: 'border-l-muted-foreground/70 border-dashed bg-secondary/60',
+	neutral: 'border-l-border bg-muted',
+};
 
 export type { TimeRange } from './booking-occupancy';
 
@@ -411,8 +419,9 @@ function DayColumn({
 				return (
 					<button
 						className={cn(
-							'border-border bg-muted absolute inset-x-1 overflow-hidden rounded-md border px-1.5 py-0.5 text-left text-xs transition-opacity hover:opacity-100',
-							booking.id === selectedBookingId ? 'opacity-100' : 'opacity-50',
+							'absolute inset-x-1 overflow-hidden rounded-md border-l-4 px-2 py-1 text-left text-xs shadow-sm transition-shadow hover:shadow-md',
+							BOOKING_BLOCK_TONE_CLASSES[bookingStatusTone(booking.status)],
+							booking.id === selectedBookingId ? 'ring-primary ring-2' : 'ring-border/60 ring-1',
 						)}
 						key={booking.id}
 						onClick={() => onSelectBooking(booking)}
@@ -424,7 +433,7 @@ function DayColumn({
 							renderBooking(booking)
 						) : fitsTwoLines ? (
 							<>
-								<span className='block truncate leading-tight font-medium'>
+								<span className='text-foreground block truncate leading-tight font-semibold'>
 									{formatTime(booking.start)} – {formatTime(booking.end)}
 								</span>
 								<span className='text-muted-foreground block truncate leading-tight'>
@@ -432,7 +441,9 @@ function DayColumn({
 								</span>
 							</>
 						) : (
-							<span className='block truncate font-medium'>{formatTime(booking.start)}</span>
+							<span className='text-foreground block truncate font-semibold'>
+								{formatTime(booking.start)}
+							</span>
 						)}
 					</button>
 				);

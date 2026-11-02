@@ -2,7 +2,15 @@ import type { Booking } from '@booking-core/api-client';
 import { cn } from 'cn';
 import type { ReactNode, WheelEvent } from 'react';
 import { useRef } from 'react';
+import { bookingStatusTone } from './booking-status-tone';
 import { formatTime } from './format-date-time';
+
+/** Matches the time grid's per-status tiles (`BookingTimeGrid`) at pill scale. */
+const BOOKING_PILL_TONE_CLASSES: Record<ReturnType<typeof bookingStatusTone>, string> = {
+	active: 'bg-primary/10 text-primary hover:bg-primary/20',
+	pending: 'bg-secondary text-secondary-foreground hover:bg-secondary/70',
+	neutral: 'bg-muted text-muted-foreground hover:bg-muted/70',
+};
 
 export interface BookingMonthGridProps {
 	onNavigateMonth: (direction: 1 | -1) => void;
@@ -139,7 +147,10 @@ export function BookingMonthGrid({
 							</span>
 							{visible.map((booking) => (
 								<button
-									className='bg-primary/10 text-primary hover:bg-primary/20 w-full min-w-0 truncate rounded px-1 py-0.5 text-left text-xs'
+									className={cn(
+										'w-full min-w-0 truncate rounded px-1 py-0.5 text-left text-xs',
+										BOOKING_PILL_TONE_CLASSES[bookingStatusTone(booking.status)],
+									)}
 									key={booking.id}
 									onClick={(event) => {
 										event.stopPropagation();
