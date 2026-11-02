@@ -1,5 +1,7 @@
+export { getErrorCode } from './api-error';
 export type { AvailabilityGridProps } from './availability-grid';
 export { AvailabilityGrid } from './availability-grid';
+export { getQueryRange, groupBookingsByDay } from './booking-calendar-range';
 export type { BookingCardProps } from './booking-card';
 export { BookingCard } from './booking-card';
 export type { BookingCreatePanelProps } from './booking-create-panel';
@@ -12,15 +14,26 @@ export type { TimeRange } from './booking-occupancy';
 export { findOverlappingBooking, isBlockingBooking } from './booking-occupancy';
 export type { BookingStatusBadgeProps } from './booking-status-badge';
 export { BOOKING_STATUS_LABELS, BookingStatusBadge } from './booking-status-badge';
+export type { BookingStatusTone } from './booking-status-tone';
+export { bookingStatusTone } from './booking-status-tone';
 export type { BookingTimeGridProps } from './booking-time-grid';
 export { BookingTimeGrid } from './booking-time-grid';
 export type { BookingTimelineProps } from './booking-timeline';
 export { BookingTimeline } from './booking-timeline';
 export type { CalendarViewMode } from './calendar-navigation';
-export { getVisibleDays, navigateCalendar, startOfWeek } from './calendar-navigation';
+export {
+	getVisibleDays,
+	navigateCalendar,
+	startOfWeek,
+	toDateKey,
+	toLocalDate,
+} from './calendar-navigation';
 export type { CalendarToolbarProps } from './calendar-toolbar';
 export { CalendarToolbar } from './calendar-toolbar';
 export { isCheckInOpen } from './check-in-window';
 export { formatDateTime, formatTime, formatTimeRange } from './format-date-time';
 export type { ResourceSelectProps } from './resource-select';
 export { ResourceSelect } from './resource-select';
+export { useBookingCalendarData } from './use-booking-calendar-data';
+export type { UseBookingCalendarNavigationOptions } from './use-booking-calendar-navigation';
+export { useBookingCalendarNavigation } from './use-booking-calendar-navigation';

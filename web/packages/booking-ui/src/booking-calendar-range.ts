@@ -1,11 +1,6 @@
 import type { Booking } from '@booking-core/api-client';
-import type { CalendarViewMode } from '@booking-core/booking-ui';
-import { getVisibleDays } from '@booking-core/booking-ui';
-
-function toLocalDate(date: string): Date {
-	const [year, month, day] = date.split('-').map(Number);
-	return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
-}
+import type { CalendarViewMode } from './calendar-navigation';
+import { getVisibleDays, toDateKey, toLocalDate } from './calendar-navigation';
 
 function startOfDayIso(date: Date): string {
 	const start = new Date(date);
@@ -44,20 +39,12 @@ export function getQueryRange(
 	return { from: startOfDayIso(toLocalDate(first)), to: endOfDayIso(toLocalDate(last)) };
 }
 
-function dayKey(iso: string): string {
-	const date = new Date(iso);
-	const year = date.getFullYear();
-	const month = String(date.getMonth() + 1).padStart(2, '0');
-	const day = String(date.getDate()).padStart(2, '0');
-	return `${year}-${month}-${day}`;
-}
-
 /** Groups bookings by the local calendar day their `start` falls on. */
 export function groupBookingsByDay(bookings: Booking[]): Map<string, Booking[]> {
 	const byDay = new Map<string, Booking[]>();
 
 	for (const booking of bookings) {
-		const key = dayKey(booking.start);
+		const key = toDateKey(new Date(booking.start));
 		const existing = byDay.get(key);
 
 		if (existing) {

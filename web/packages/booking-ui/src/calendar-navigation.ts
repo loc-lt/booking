@@ -1,11 +1,13 @@
 export type CalendarViewMode = 'day' | 'week' | 'month';
 
-function toLocalDate(date: string): Date {
+/** Parses a 'YYYY-MM-DD' key as a local-midnight `Date` (never UTC — avoids off-by-one days). */
+export function toLocalDate(date: string): Date {
 	const [year, month, day] = date.split('-').map(Number);
 	return new Date(year ?? 0, (month ?? 1) - 1, day ?? 1);
 }
 
-function toDateKey(date: Date): string {
+/** The inverse of `toLocalDate` — a `Date`'s own 'YYYY-MM-DD', in local time. */
+export function toDateKey(date: Date): string {
 	const year = date.getFullYear();
 	const month = String(date.getMonth() + 1).padStart(2, '0');
 	const day = String(date.getDate()).padStart(2, '0');

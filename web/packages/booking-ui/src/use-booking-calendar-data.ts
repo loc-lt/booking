@@ -5,9 +5,10 @@ import {
 	useListBookings,
 	useListResources,
 } from '@booking-core/api-client';
-import type { CalendarViewMode } from '@booking-core/booking-ui';
 import { useMemo } from 'react';
 import { getQueryRange, groupBookingsByDay } from './booking-calendar-range';
+import { isBlockingBooking } from './booking-occupancy';
+import type { CalendarViewMode } from './calendar-navigation';
 
 export function useBookingCalendarData(
 	resourceId: string | undefined,
@@ -29,8 +30,11 @@ export function useBookingCalendarData(
 	const bookingsQuery = useListBookings(bookingsParams, {
 		query: { enabled: !!resourceId, queryKey: getListBookingsQueryKey(bookingsParams) },
 	});
+	// Cancelled/rejected/expired/no-show bookings left their slot free — a new
+	// booking can occupy the same range, so showing both would overlap on the
+	// grid. Only bookings still holding their slot are worth rendering here.
 	const bookingsByDay = useMemo(
-		() => groupBookingsByDay(bookingsQuery.data?.data ?? []),
+		() => groupBookingsByDay((bookingsQuery.data?.data ?? []).filter(isBlockingBooking)),
 		[bookingsQuery.data],
 	);
 
