@@ -76,6 +76,8 @@ The core runs as a **service**: its own deployment and database. Products never 
 | Service token | Product API → core API | Applying presets, creating resources, reading bookings |
 | Signed webhook | Core worker → product API | Reacting to `booking.confirmed`, `booking.completed`, … |
 
+A visitor who books without registering still authenticates: the auth service issues them a short-lived JWT (no password, minimal claims) instead of the usual sign-in token. The core treats it like any other user's JWT — there's no unauthenticated connection to the core API. See [backend.md](backend.md)'s "Auth" section.
+
 | A product needs to… | How |
 | --- | --- |
 | Store product-only data | Its own backend and database; the core never sees those tables |

@@ -4,6 +4,7 @@
 | --- | --- |
 | **Tenant** | One paying customer organisation, e.g. GreenDesk Co-working. Tenants never see each other's data. |
 | **End user / member** | A person who books through a tenant's setup. |
+| **Guest** | A tenant role for a person who books without registering. Still a core user with a JWT — issued by the auth service without a password — just with a lighter identity and fewer permissions than `member`. |
 | **Site** | A physical location of a tenant, with its own timezone and opening hours. |
 | **Resource type** | A template for bookable things (desk, meeting room, phone booth), with custom fields and policies. |
 | **Resource** | One bookable thing of a type, e.g. Phone Booth 1. |

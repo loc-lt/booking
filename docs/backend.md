@@ -67,6 +67,7 @@ Users sign in through our existing auth service, which issues JWTs. The core nev
 - **Map the user:** `sub` maps to a core user, created on first sight from the token's claims.
 - **Tenant and role come from the core:** the user's membership in the tenant named by `X-Tenant-Id`. One person can belong to several tenants.
 - **Roles per tenant:** `owner`, `admin`, `staff`, `member`, `guest`; optionally scoped to a site.
+- **Guest (no-account) booking:** a person who books without registering still needs a token — the auth service issues a short-lived JWT for them (minimal claims, no password) the same way it does for a registered sign-in. The core maps it to a core user on first sight exactly as any other token, tagged with the `guest` role. The core never has an unauthenticated path; "no account" is handled upstream by the auth service, not by relaxing the core's auth requirement.
 - **Behind an adapter:** token verification sits behind one `AuthAdapter` class, so changing providers touches one place.
 - **Service tokens** for product backends (after December) are JWTs with a `scope` claim.
 

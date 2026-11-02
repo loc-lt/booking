@@ -155,6 +155,7 @@ Frontend and Backend engineers split work by feature each sprint rather than own
 | --- | --- |
 | **Tenant** | One paying customer organisation, e.g. GreenDesk Co-working. Tenants never see each other's data. |
 | **End user / member** | A person who books through a tenant's setup. |
+| **Guest** | A tenant role for a person who books without registering. Still a core user with a JWT — issued by the auth service without a password — just with a lighter identity and fewer permissions than `member`. |
 | **Site** | A physical location of a tenant, with its own timezone and opening hours. |
 | **Resource type** | A template for bookable things (desk, meeting room, phone booth), with custom fields and policies. |
 | **Resource** | One bookable thing of a type, e.g. Phone Booth 1. |
@@ -256,6 +257,8 @@ The core runs as a **service**: its own deployment and database. Products never 
 | User's JWT | Product frontend → product API | Product-only features: memberships, invoices |
 | Service token | Product API → core API | Applying presets, creating resources, reading bookings |
 | Signed webhook | Core worker → product API | Reacting to `booking.confirmed`, `booking.completed`, … |
+
+A visitor who books without registering still authenticates: the auth service issues them a short-lived JWT (no password, minimal claims) instead of the usual sign-in token. The core treats it like any other user's JWT — there's no unauthenticated connection to the core API. See [backend.md](#backend-guide)'s "Auth" section.
 
 | A product needs to… | How |
 | --- | --- |
@@ -808,6 +811,7 @@ Users sign in through our existing auth service, which issues JWTs. The core nev
 - **Map the user:** `sub` maps to a core user, created on first sight from the token's claims.
 - **Tenant and role come from the core:** the user's membership in the tenant named by `X-Tenant-Id`. One person can belong to several tenants.
 - **Roles per tenant:** `owner`, `admin`, `staff`, `member`, `guest`; optionally scoped to a site.
+- **Guest (no-account) booking:** a person who books without registering still needs a token — the auth service issues a short-lived JWT for them (minimal claims, no password) the same way it does for a registered sign-in. The core maps it to a core user on first sight exactly as any other token, tagged with the `guest` role. The core never has an unauthenticated path; "no account" is handled upstream by the auth service, not by relaxing the core's auth requirement.
 - **Behind an adapter:** token verification sits behind one `AuthAdapter` class, so changing providers touches one place.
 - **Service tokens** for product backends (after December) are JWTs with a `scope` claim.
 
