@@ -175,8 +175,11 @@ export function DateTimePicker({
 			/>
 			{/* `w-auto` (not the popover default `w-72`) so the popover shrinks to
 			 * the calendar's own natural width instead of leaving empty space to
-			 * its right. */}
-			<PopoverContent className='w-auto p-3'>
+			 * its right. `collisionAvoidance={{ side: 'none' }}` keeps it below
+			 * the trigger always — like `DatePicker` — instead of flipping to a
+			 * side when there isn't room below; this popup is taller (calendar
+			 * + time row), so it hit that flip more easily. */}
+			<PopoverContent className='w-auto p-3' collisionAvoidance={{ side: 'none' }}>
 				<Calendar
 					locale={locale}
 					mode='single'
@@ -188,9 +191,19 @@ export function DateTimePicker({
 
 				<div className='mt-3 grid gap-1.5 border-t pt-3'>
 					<div className='text-xs/relaxed font-medium'>{timeLabel}</div>
-					<div className='grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center gap-1'>
+					{/*
+					 * `justify-items-center` + a fixed `w-14` on each `Input` below —
+					 * without an explicit width, a plain `<input>`'s intrinsic size
+					 * defaults to roughly 20 characters regardless of `maxLength`,
+					 * so these 2-digit fields rendered far wider than their content
+					 * needs. The `1fr` columns still spread the three fields evenly
+					 * across the calendar's width above them; only the input boxes
+					 * themselves are now small.
+					 */}
+					<div className='grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center justify-items-center gap-1'>
 						<Input
 							aria-label={hourLabel}
+							className='w-14 text-center'
 							inputMode='numeric'
 							maxLength={2}
 							onChange={(event) => handleTimePartChange('hour', event.target.value)}
@@ -201,6 +214,7 @@ export function DateTimePicker({
 						<span className='text-muted-foreground text-center'>:</span>
 						<Input
 							aria-label={minuteLabel}
+							className='w-14 text-center'
 							inputMode='numeric'
 							maxLength={2}
 							onChange={(event) => handleTimePartChange('minute', event.target.value)}
@@ -211,6 +225,7 @@ export function DateTimePicker({
 						<span className='text-muted-foreground text-center'>:</span>
 						<Input
 							aria-label={secondLabel}
+							className='w-14 text-center'
 							inputMode='numeric'
 							maxLength={2}
 							onChange={(event) => handleTimePartChange('second', event.target.value)}

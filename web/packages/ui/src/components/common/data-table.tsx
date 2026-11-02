@@ -85,7 +85,13 @@ function PageNumberInput({
 	return (
 		<Input
 			aria-label={ariaLabel}
-			className='h-8 w-12 px-1 text-center text-xs'
+			// `md:text-xs`, not just `text-xs` — `Input`'s own base classes set
+			// `md:text-sm`, and a bare `text-xs` here doesn't conflict with that
+			// more-specific variant in tailwind-merge's eyes, so without it this
+			// renders at 14px/20px line-height (not 12px/16px) on any desktop-
+			// width viewport — taller than the fixed `h-8` box expects, which
+			// shifts the digit off-center next to the icon buttons beside it.
+			className='h-8 w-12 px-1 text-center text-xs md:text-xs'
 			inputMode='numeric'
 			onBlur={() => setValue(String(currentPage))}
 			onChange={(event) => setValue(event.target.value)}

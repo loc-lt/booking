@@ -1,3 +1,4 @@
+import { cn } from 'cn';
 import type { ComponentProps, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Button } from '../ui/button';
@@ -45,9 +46,31 @@ export function CooldownButton({
 		}
 	};
 
+	const resolveCooldownLabel = (value: number) => cooldownLabel?.(value) ?? `${value}s`;
+
 	return (
 		<Button {...props} disabled={disabled || isCoolingDown} onClick={handleClick}>
-			{isCoolingDown ? (cooldownLabel?.(remaining) ?? `${remaining}s`) : children}
+			{/*
+			 * `children` and the cooldown label are stacked in the same grid
+			 * cell (overlapping, one hidden via `invisible`) instead of swapped
+			 * in and out — that way the button's intrinsic size is always the
+			 * larger of the two, so starting (or progressing through) the
+			 * cooldown never shrinks or grows the button. The third, always-
+			 * invisible span reserves width for the longest countdown digit
+			 * count up front (e.g. "10s"), so the button doesn't resize again
+			 * when `remaining` drops from double to single digits mid-cooldown.
+			 */}
+			<span className='grid'>
+				<span className={cn('col-start-1 row-start-1', isCoolingDown && 'invisible')}>
+					{children}
+				</span>
+				<span className={cn('col-start-1 row-start-1', !isCoolingDown && 'invisible')}>
+					{resolveCooldownLabel(remaining)}
+				</span>
+				<span aria-hidden className='invisible col-start-1 row-start-1'>
+					{resolveCooldownLabel(cooldownSeconds)}
+				</span>
+			</span>
 		</Button>
 	);
 }
