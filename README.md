@@ -655,6 +655,7 @@ Zod can't describe fields that only exist in a tenant's configuration. Ajv valid
 - **Each package exports through its `index.ts`.** Nothing imports another package's internals; packages never import from `web/apps/`.
 - **Inside an app:** one folder per feature under `src/features/<feature>/`, with its components, hooks and tests together.
 - **shadcn/ui components** live in `web/packages/ui`, are added with its CLI, and may be edited.
+- **File names are kebab-case** (`booking-card.tsx`, `use-booking-calendar-data.ts`), across packages and apps alike ([D-001](#decision-log)). `index.ts` entry points keep their name.
 
 #### Rules for packages
 
@@ -892,6 +893,7 @@ We build product and UX analytics first, to answer the boss's questions: how man
 | `rule_published` | Admin publishes a rule | stage, effect, previewUsed | Rule change |
 | `survey_answered` | Member answers the post-booking survey | score | Do they like it |
 | `my_bookings_viewed` | Member opens "My bookings" | resultsCount | — |
+| `booking_calendar_viewed` | Member opens the booking calendar | — | — |
 | `booking_checked_in` | Member checks in | resourceTypeId | — |
 | `booking_cancelled` | Member cancels a booking | resourceTypeId | — |
 | `booking_approved` | Admin approves a pending booking | resourceTypeId | Admin approvals |
@@ -984,4 +986,5 @@ Every decision that affects more than one person is recorded here, in the same m
 
 | ID | Date | Decision | Why | Rejected |
 | --- | --- | --- | --- | --- |
+| D-001 | 2026-11-02 | Frontend source files (components, hooks, utils) use kebab-case filenames, e.g. `booking-card.tsx`, `use-booking-calendar-data.ts`. | The `ui` package's shadcn-added and hand-built components were already kebab-case; every other package and both apps' features were PascalCase/camelCase, so the two styles sat side by side in the same tree. | Keeping PascalCase for components and camelCase for hooks/utils (the pre-existing majority) — rejected because it kept `web/packages/ui` as a permanent exception rather than resolving it. |
 

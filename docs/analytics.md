@@ -43,6 +43,7 @@ We build product and UX analytics first, to answer the boss's questions: how man
 | `rule_published` | Admin publishes a rule | stage, effect, previewUsed | Rule change |
 | `survey_answered` | Member answers the post-booking survey | score | Do they like it |
 | `my_bookings_viewed` | Member opens "My bookings" | resultsCount | — |
+| `booking_calendar_viewed` | Member opens the booking calendar | — | — |
 | `booking_checked_in` | Member checks in | resourceTypeId | — |
 | `booking_cancelled` | Member cancels a booking | resourceTypeId | — |
 | `booking_approved` | Admin approves a pending booking | resourceTypeId | Admin approvals |
