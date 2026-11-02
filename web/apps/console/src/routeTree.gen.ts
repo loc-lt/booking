@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
+import { Route as BookingCalendarRouteImport } from './routes/booking-calendar'
 import { Route as BookingsRouteImport } from './routes/bookings'
 import { Route as ResourceTypesRouteImport } from './routes/resource-types'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApprovalsRoute = ApprovalsRouteImport.update({
   id: '/approvals',
   path: '/approvals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BookingCalendarRoute = BookingCalendarRouteImport.update({
+  id: '/booking-calendar',
+  path: '/booking-calendar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BookingsRoute = BookingsRouteImport.update({
@@ -38,12 +44,14 @@ const ResourceTypesRoute = ResourceTypesRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
+  '/booking-calendar': typeof BookingCalendarRoute
   '/bookings': typeof BookingsRoute
   '/resource-types': typeof ResourceTypesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
+  '/booking-calendar': typeof BookingCalendarRoute
   '/bookings': typeof BookingsRoute
   '/resource-types': typeof ResourceTypesRoute
 }
@@ -51,20 +59,29 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/approvals': typeof ApprovalsRoute
+  '/booking-calendar': typeof BookingCalendarRoute
   '/bookings': typeof BookingsRoute
   '/resource-types': typeof ResourceTypesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/approvals' | '/bookings' | '/resource-types'
+  fullPaths:
+    '/' | '/approvals' | '/booking-calendar' | '/bookings' | '/resource-types'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/approvals' | '/bookings' | '/resource-types'
-  id: '__root__' | '/' | '/approvals' | '/bookings' | '/resource-types'
+  to: '/' | '/approvals' | '/booking-calendar' | '/bookings' | '/resource-types'
+  id:
+    | '__root__'
+    | '/'
+    | '/approvals'
+    | '/booking-calendar'
+    | '/bookings'
+    | '/resource-types'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApprovalsRoute: typeof ApprovalsRoute
+  BookingCalendarRoute: typeof BookingCalendarRoute
   BookingsRoute: typeof BookingsRoute
   ResourceTypesRoute: typeof ResourceTypesRoute
 }
@@ -83,6 +100,13 @@ declare module '@tanstack/react-router' {
       path: '/approvals'
       fullPath: '/approvals'
       preLoaderRoute: typeof ApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/booking-calendar': {
+      id: '/booking-calendar'
+      path: '/booking-calendar'
+      fullPath: '/booking-calendar'
+      preLoaderRoute: typeof BookingCalendarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/bookings': {
@@ -105,6 +129,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApprovalsRoute: ApprovalsRoute,
+  BookingCalendarRoute: BookingCalendarRoute,
   BookingsRoute: BookingsRoute,
   ResourceTypesRoute: ResourceTypesRoute,
 }

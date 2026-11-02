@@ -216,9 +216,15 @@ importers:
       '@booking-core/api-client':
         specifier: workspace:*
         version: link:../api-client
+      '@booking-core/custom-fields':
+        specifier: workspace:*
+        version: link:../custom-fields
       '@booking-core/ui':
         specifier: workspace:*
         version: link:../ui
+      cn:
+        specifier: ^0.5.0
+        version: 0.5.0
     devDependencies:
       '@storybook/react-vite':
         specifier: ^10.6.5
