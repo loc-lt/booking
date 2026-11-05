@@ -50,7 +50,7 @@ lint_api:
   script:
     - ruff check core/api
     - ruff format --check core/api
-    - lint-imports       # import-linter: modules only use each other's service.py
+    - (cd core/api && lint-imports)   # import-linter: modules only use each other's service.py
 
 contract:
   extends: .node
@@ -145,6 +145,6 @@ deploy_demo:
   script:
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
     - docker compose -f infra/compose.server.yaml --env-file /srv/booking-core/.env pull
-    - docker compose -f infra/compose.server.yaml --env-file /srv/booking-core/.env run --rm api alembic upgrade head
+    - docker compose -f infra/compose.server.yaml --env-file /srv/booking-core/.env run --rm api python manage.py migrate --noinput
     - docker compose -f infra/compose.server.yaml --env-file /srv/booking-core/.env up -d
     - curl --fail --retry 10 --retry-delay 3 http://localhost:3000/api/healthz

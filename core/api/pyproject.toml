@@ -1,0 +1,53 @@
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "app.settings.test"
+django_find_project = true
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "DJ", "S", "SIM", "RUF"]
+# RUF012: lists in Django `class Meta` are read once by the framework.
+# DJ001: nullable text columns mirror the schema (docs/database/booking_core_mvp.dbml), where
+#        NULL means "not set" and differs from "".
+# DJ008: models are not shown in an admin; __str__ adds nothing.
+ignore = ["RUF012", "DJ001", "DJ008"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S608"]
+"app/settings/*.py" = ["E402", "F403", "F405"]
+"kernel/db.py" = ["S608"]
+"**/migrations/*.py" = ["E501"]
+# HTML and JavaScript of the docs pages, kept readable rather than wrapped.
+"app/docs.py" = ["E501"]
+
+# Modules talk to each other only through service.py (docs/backend.md).
+# Run from core/api: `lint-imports`.
+[tool.importlinter]
+root_packages = ["app", "kernel", "modules", "worker"]
+
+[[tool.importlinter.contracts]]
+name = "Modules use each other only through service.py"
+type = "independence"
+modules = [
+    "modules.tenancy",
+    "modules.users",
+    "modules.resources",
+    "modules.availability",
+    "modules.config",
+    "modules.booking",
+    "modules.payments",
+    "modules.events",
+    "modules.rules",
+]
+ignore_imports = ["modules.** -> modules.*.service"]
+
+[[tool.importlinter.contracts]]
+name = "The kernel depends on no module"
+type = "forbidden"
+source_modules = ["kernel"]
+forbidden_modules = ["modules", "worker", "app"]

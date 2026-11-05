@@ -1,0 +1,84 @@
+# Local stack: database, migrations, API and worker (docs/operations.md, "Environments").
+# Apps run natively (`pnpm dev`) and call the API on http://localhost:8000.
+#
+#   python scripts/dev.py up        # same as: docker compose -f infra/compose.yaml up -d --build
+#   python scripts/dev.py seed      # a demo tenant with people and tokens
+#   docker compose -f infra/compose.yaml up -d postgres      # database only, for pytest
+#
+# The API connects as booking_app: not a superuser, no BYPASSRLS, so row-level security
+# applies to it (docs/backend.md, "Data and tenancy").
+
+x-api-env: &api-env
+  DJANGO_SETTINGS_MODULE: app.settings.production
+  DJANGO_SECRET_KEY: compose-only-not-secret
+  DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,api
+  DATABASE_URL: postgresql://booking_app:booking_app@postgres:5432/booking_core
+  # Local only. Real deployments verify tokens from the auth service (JWT_JWKS_URL).
+  JWT_SECRET: local-only-jwt-secret-change-me-32bytes
+  JWT_ISSUER: https://auth.local
+  JWT_AUDIENCE: booking-core
+  # Mock payment gateway of local runs and demos (modules/payments): webhooks are signed
+  # with this secret (HMAC-SHA256 of the body, header X-Signature).
+  PAYMENT_WEBHOOK_SECRET: local-only-webhook-secret
+  # Apps on Vite call the API from another origin in local development only.
+  CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "${POSTGRES_HOST_PORT:-55433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d booking_core"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    build: ../core/api
+    command: ["python", "manage.py", "migrate", "--noinput"]
+    environment: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build: ../core/api
+    environment:
+      <<: *api-env
+      # Browsable docs at http://localhost:8000/api/docs (core/api/app/docs.py), read-only
+      # from this checkout. WORKSPACE_DOCS_DIR (set by scripts/dev.py when a docs/ folder sits
+      # next to the repository) adds the team's notes.
+      API_DOCS_ENABLED: "true"
+      API_DOCS_REPO_DIR: /repo
+      API_DOCS_WORKSPACE_DIR: ${WORKSPACE_DOCS_DIR:+/workspace-docs}
+    volumes:
+      - ..:/repo:ro
+      - ${WORKSPACE_DOCS_DIR:-../docs}:/workspace-docs:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    build: ../core/api
+    command: ["python", "manage.py", "run_worker"]
+    environment: *api-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:

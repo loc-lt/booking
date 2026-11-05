@@ -61,14 +61,18 @@ Each module has:
 
 ## Auth
 
-Users sign in through our existing auth service, which issues JWTs. The core never handles passwords.
+The core signs people in itself (decision D-003): module `modules/identity`, endpoints under `/api/v1/auth/`. It issues JWTs; every other endpoint only verifies them, so the rest of the core does not care who issued a token.
 
-- **Verify every token:** signature, `exp`, `iss`, `aud`. Prefer asymmetric keys (RS256 or ES256) from the auth service's JWKS endpoint. With a shared secret (HS256), keep it in the server's `.env` and plan a move to asymmetric keys.
-- **Map the user:** `sub` maps to a core user, created on first sight from the token's claims.
+- **Email + password.** Hashed with Django's PBKDF2 hasher, checked by Django's password validators (8+ characters, not common, not all digits). Passwords and tokens are never stored in clear: refresh tokens and emailed links are stored as SHA-256 hashes.
+- **Tokens.** A short access token (15 minutes, `AUTH_ACCESS_TTL_SECONDS`) and a refresh token (30 days) that works once: `/auth/refresh` returns a new pair. Reusing an already used refresh token ends that whole session (it has probably leaked). Logout, password change and password reset end sessions too.
+- **Brute force.** Unknown email and wrong password get the same 401. After 5 wrong passwords the account locks for 15 minutes. Sign-in endpoints are rate-limited per client address (`AUTH_RATE`).
+- **Accounts.** Members and guests register themselves (`/auth/register`). Staff and admins are invited (`POST /members/invite`); the worker emails a one-time link, and `/auth/invitations/accept` sets the password and activates the membership. An address with a pending invitation cannot register: the link is the way in.
+- **Guest (no-account) booking.** `/auth/guest` gives a short-lived access token (2 hours, no refresh token) for a new member with the `guest` role in one tenant, unless the tenant turned guests off (`settings.guestBooking`). There is still no unauthenticated path to the booking API.
+- **Verify every token:** signature, `exp`, `iss`, `aud`, in one `AuthAdapter` class. Tokens are HS256 with `JWT_SECRET` from the server's `.env`; plan a move to asymmetric keys (RS256) with a JWKS endpoint before products verify tokens themselves. An external identity provider can still be plugged in through `JWT_JWKS_URL`.
+- **Map the user:** `sub` maps to a core user. `GET /me/tenants` lists the person's tenants (an RLS policy allows reading one's own memberships only while no tenant is active).
 - **Tenant and role come from the core:** the user's membership in the tenant named by `X-Tenant-Id`. One person can belong to several tenants.
 - **Roles per tenant:** `owner`, `admin`, `staff`, `member`, `guest`; optionally scoped to a site.
-- **Guest (no-account) booking:** a person who books without registering still needs a token — the auth service issues a short-lived JWT for them (minimal claims, no password) the same way it does for a registered sign-in. The core maps it to a core user on first sight exactly as any other token, tagged with the `guest` role. The core never has an unauthenticated path; "no account" is handled upstream by the auth service, not by relaxing the core's auth requirement.
-- **Behind an adapter:** token verification sits behind one `AuthAdapter` class, so changing providers touches one place.
+- **Email.** Invitation and reset emails are sent after commit through Django's mail backend: console locally (the worker or API log), SMTP on servers (`EMAIL_*`).
 - **Service tokens** for product backends (after December) are JWTs with a `scope` claim.
 
 ## Engine

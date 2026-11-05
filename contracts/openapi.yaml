@@ -15,6 +15,8 @@ security:
   - bearerAuth: []
 
 tags:
+  - name: auth
+    description: Signing in to the booking core (D-003). No X-Tenant-Id.
   - name: resource-types
     description: Templates for bookable things (desk, meeting room, phone booth).
   - name: resources
@@ -23,8 +25,272 @@ tags:
     description: Free/busy search over a resource type's resources.
   - name: bookings
     description: Requests for a resource and the lifecycle moves they go through.
+  - name: people
+    description: Who is calling, members, invitations, roles built from permission codes.
+  - name: sites
+    description: Physical places with a timezone, opening hours and exceptions.
+  - name: rules
+    description: Versioned booking rules (eligibility, limits, approval) evaluated by the pipeline.
+  - name: payments
+    description: Upfront payment, desk payments, refunds and gateway webhooks.
+  - name: events
+    description: The tenant's event log (outbox) with delivery state.
 
 paths:
+  /auth/register:
+    post:
+      operationId: register
+      summary: Create an account
+      description: >
+        Email + password. Returns a token pair, like login. An email with a pending
+        invitation is refused: that person uses the link in the invitation email.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/login:
+    post:
+      operationId: login
+      summary: Sign in with email and password
+      description: >
+        Unknown email and wrong password get the same 401. After AUTH_MAX_FAILED_LOGINS wrong
+        passwords in a row the account is locked for AUTH_LOCK_MINUTES.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/refresh:
+    post:
+      operationId: refreshTokens
+      summary: Get a new token pair
+      description: >
+        The refresh token is single use: the answer carries a new one. Sending an already
+        used refresh token again ends that whole session (it has probably leaked).
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: New tokens.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Sign out
+      description: Ends the session the refresh token belongs to. Access tokens expire by themselves.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "204":
+          description: Signed out.
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/password/forgot:
+    post:
+      operationId: forgotPassword
+      summary: Email a password reset link
+      description: Always 202, whether or not the email has an account.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+      responses:
+        "202":
+          description: If the account exists, a link is on its way.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Accepted"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/password/reset:
+    post:
+      operationId: resetPassword
+      summary: Set a new password with the emailed link
+      description: The link works once. Every session of the account ends.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "200":
+          description: Signed in with the new password.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/password/change:
+    post:
+      operationId: changePassword
+      summary: Change my password
+      description: Needs a token, no X-Tenant-Id. Every other session of the account ends.
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: New tokens for this device.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /auth/invitations/accept:
+    post:
+      operationId: acceptInvitationLink
+      summary: Join a tenant with the invitation link
+      description: >
+        A new person chooses a password; someone who already has an account enters theirs.
+        The membership becomes active and the answer signs the person in.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptInvitationLinkRequest"
+      responses:
+        "200":
+          description: Signed in and a member of the tenant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitationAccepted"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /auth/guest:
+    post:
+      operationId: guestToken
+      summary: Book without an account
+      description: >
+        An access token of a few hours (no refresh token) for a new guest member of one
+        tenant. Refused when the tenant turned guest bookings off (settings.guestBooking).
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestTokenRequest"
+      responses:
+        "201":
+          description: A guest token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestToken"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /me/tenants:
+    get:
+      operationId: listMyTenants
+      summary: The tenants I belong to
+      description: Needs a token, no X-Tenant-Id. Use it after login to choose the X-Tenant-Id.
+      tags: [auth]
+      responses:
+        "200":
+          description: Every membership of the caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MyTenantList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+
   /resource-types:
     get:
       operationId: listResourceTypes
@@ -46,6 +312,8 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
     post:
       operationId: createResourceType
       summary: Create a resource type
@@ -104,6 +372,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
     patch:
       operationId: updateResourceType
       summary: Update a resource type's flow config
@@ -173,6 +443,8 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
     post:
       operationId: createResource
       summary: Create a resource
@@ -233,6 +505,38 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+    patch:
+      operationId: updateResource
+      summary: Edit a resource
+      description: Rename it or replace its custom field values (checked against the type's latest form).
+      tags: [resources]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateResourceRequest"
+      responses:
+        "200":
+          description: The resource.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Resource"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /availability:
     get:
@@ -284,6 +588,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /bookings:
     get:
@@ -345,6 +651,8 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
     post:
       operationId: createBooking
       summary: Submit a booking request
@@ -411,6 +719,8 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /bookings/{bookingId}/check-in:
     post:
@@ -436,6 +746,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /bookings/{bookingId}/cancel:
     post:
@@ -461,6 +773,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /bookings/{bookingId}/approve:
     post:
@@ -486,6 +800,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
 
   /bookings/{bookingId}/reject:
     post:
@@ -517,6 +833,1215 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /resource-types/{resourceTypeId}/fields:
+    post:
+      operationId: addResourceTypeFields
+      summary: Add custom fields
+      description: >
+        Adds fields to an existing resource type and publishes a new form for each
+        affected scope. Records saved earlier keep the form they were checked against;
+        nothing is rewritten. Keys are permanent: a key used before (even archived) is
+        refused.
+      tags: [resource-types]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceTypeId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddFieldsRequest"
+      responses:
+        "200":
+          description: The resource type with its new fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceType"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /resource-types/{resourceTypeId}/fields/{fieldKey}/archive:
+    post:
+      operationId: archiveResourceTypeField
+      summary: Archive a custom field
+      description: Stops asking for a field. Stored values stay; new records no longer accept it.
+      tags: [resource-types]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceTypeId"
+        - $ref: "#/components/parameters/FieldKey"
+      responses:
+        "200":
+          description: The resource type without the field.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceType"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /resource-types/{resourceTypeId}/versions:
+    get:
+      operationId: listPolicyVersions
+      summary: Policy version history
+      description: Every published flow config of the resource type, newest first.
+      tags: [resource-types]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceTypeId"
+      responses:
+        "200":
+          description: The versions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyVersionList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /resource-types/{resourceTypeId}/versions/{version}/restore:
+    post:
+      operationId: restorePolicyVersion
+      summary: Roll back to an earlier version
+      description: >
+        Republishes an earlier version's policies as the newest version. History is never
+        rewritten; bookings keep the version they were made under.
+      tags: [resource-types]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceTypeId"
+        - $ref: "#/components/parameters/Version"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestoreVersionRequest"
+      responses:
+        "200":
+          description: The resource type on its new version.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceType"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/StaleVersion"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /resources/{resourceId}/maintenance:
+    post:
+      operationId: startResourceMaintenance
+      summary: Put a resource in maintenance
+      description: >
+        active → maintenance. The resource disappears from availability and new bookings
+        are denied (`resource.status`). Bookings already made are NOT cancelled; they are
+        returned for an admin to decide about.
+      tags: [resources]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResourceMoveRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ResourceStatusChanged"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /resources/{resourceId}/activate:
+    post:
+      operationId: activateResource
+      summary: Make a resource bookable again
+      description: maintenance or inactive → active.
+      tags: [resources]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResourceMoveRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ResourceStatusChanged"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /resources/{resourceId}/deactivate:
+    post:
+      operationId: deactivateResource
+      summary: Take a resource out of service
+      description: active or maintenance → inactive.
+      tags: [resources]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResourceMoveRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/ResourceStatusChanged"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /resources/{resourceId}/hours:
+    get:
+      operationId: getResourceHours
+      summary: A resource's opening hours
+      description: Its own weekly hours, or its site's when it has none (`inheritsSiteHours`).
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: The hours.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceHours"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    put:
+      operationId: setResourceHours
+      summary: Give a resource its own hours
+      description: Replaces the resource's weekly hours; the site's hours no longer apply to it.
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetHoursRequest"
+      responses:
+        "200":
+          description: The hours.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceHours"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    delete:
+      operationId: clearResourceHours
+      summary: Follow the site's hours again
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: The hours now in force (the site's).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourceHours"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /sites:
+    get:
+      operationId: listSites
+      summary: List sites
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of sites.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    post:
+      operationId: createSite
+      summary: Create a site
+      description: A new site has no opening hours (closed) until PUT /sites/{siteId}/hours.
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSiteRequest"
+      responses:
+        "201":
+          description: The created site.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Site"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /sites/{siteId}:
+    get:
+      operationId: getSite
+      summary: Get a site
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/SiteId"
+      responses:
+        "200":
+          description: The site.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Site"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    patch:
+      operationId: updateSite
+      summary: Rename a site or change its address
+      description: The timezone cannot change once a site exists.
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/SiteId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSiteRequest"
+      responses:
+        "200":
+          description: The site.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Site"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /sites/{siteId}/hours:
+    get:
+      operationId: getSiteHours
+      summary: A site's weekly opening hours
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/SiteId"
+      responses:
+        "200":
+          description: The hours, in the site's local time.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteHours"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    put:
+      operationId: setSiteHours
+      summary: Replace a site's weekly opening hours
+      description: Several ranges per weekday are allowed; they may not overlap. Bookings already made are not touched.
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/SiteId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetHoursRequest"
+      responses:
+        "200":
+          description: The new hours.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteHours"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /availability-exceptions:
+    get:
+      operationId: listAvailabilityExceptions
+      summary: List blocks and extra openings
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: siteId
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: resourceId
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: A page of exceptions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityExceptionList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    post:
+      operationId: createAvailabilityException
+      summary: Block time or open extra time
+      description: >
+        For one site or one resource (exactly one). `block` (holiday, maintenance) removes
+        the time from availability; `open` adds time outside the weekly hours. Bookings
+        already made are NOT cancelled: a block returns the ones it overlaps.
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAvailabilityExceptionRequest"
+      responses:
+        "201":
+          description: The exception and the bookings it overlaps.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityExceptionCreated"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /availability-exceptions/{exceptionId}:
+    delete:
+      operationId: deleteAvailabilityException
+      summary: Remove a block or extra opening
+      tags: [sites]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/ExceptionId"
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /bookings/preview:
+    post:
+      operationId: previewBooking
+      summary: Dry run of the booking pipeline
+      description: >
+        Runs pipeline steps 1-6 (validation, availability, eligibility, limits, approval,
+        price) and looks at the slot, without saving anything: "would this booking be
+        allowed, and what would happen?". Bad input still fails with VALIDATION_FAILED;
+        a rule saying no is returned as `allowed: false` with `reasons`.
+      tags: [bookings]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+      responses:
+        "200":
+          description: The decision and the rule trace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingPreview"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /bookings/{bookingId}/check-out:
+    post:
+      operationId: checkOutBooking
+      summary: Check out
+      description: Moves a checked_in booking to completed now; the rest of the slot is freed.
+      tags: [bookings]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: The updated booking.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /me:
+    get:
+      operationId: getMe
+      summary: Who am I in this tenant
+      description: The caller's membership, roles and permissions per site (`*` = every site). Use it to show or hide actions.
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: The caller.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /me/accept-invitation:
+    post:
+      operationId: acceptInvitation
+      summary: Accept an invitation
+      description: >
+        The one call an invited (not yet active) member may make. The token must carry the
+        invited email with `email_verified: true`.
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: The now active membership.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /permissions:
+    get:
+      operationId: listPermissions
+      summary: Permission catalogue
+      description: The fixed codes tenants combine into roles. Tenants never invent codes.
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Every permission code.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PermissionList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /roles:
+    get:
+      operationId: listRoles
+      summary: List roles
+      description: System roles (owner, admin, staff, member, guest) and the tenant's own.
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: The roles.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    post:
+      operationId: createRole
+      summary: Create a role
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRoleRequest"
+      responses:
+        "201":
+          description: The created role.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /roles/{roleId}/permissions:
+    put:
+      operationId: setRolePermissions
+      summary: Choose a role's permissions
+      description: Replaces the set. System roles follow the product and cannot be edited (INVALID_TRANSITION).
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/RoleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetRolePermissionsRequest"
+      responses:
+        "200":
+          description: The role.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /members:
+    get:
+      operationId: listMembers
+      summary: List members
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/MemberStatus"
+        - name: q
+          in: query
+          description: Search name and email.
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A page of members.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /members/invite:
+    post:
+      operationId: inviteMember
+      summary: Invite someone by email
+      description: Creates an invited membership with its roles; emits `member.invited`.
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteMemberRequest"
+      responses:
+        "201":
+          description: The invited member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /members/{memberId}:
+    get:
+      operationId: getMember
+      summary: Get a member
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "200":
+          description: The member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /members/{memberId}/roles:
+    put:
+      operationId: setMemberRoles
+      summary: Replace a member's roles
+      description: Each role can be limited to one site. You cannot change your own roles.
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/MemberId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetMemberRolesRequest"
+      responses:
+        "200":
+          description: The member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /members/{memberId}/disable:
+    post:
+      operationId: disableMember
+      summary: Disable a member
+      description: active or invited → disabled. Every request of theirs is FORBIDDEN from now on.
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "200":
+          description: The member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /members/{memberId}/enable:
+    post:
+      operationId: enableMember
+      summary: Enable a disabled member
+      tags: [people]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/MemberId"
+      responses:
+        "200":
+          description: The member.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /rules:
+    get:
+      operationId: getRuleSet
+      summary: The current rule set
+      description: Version 0 with no rules until the first publish.
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: The rules in force.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleSet"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+    put:
+      operationId: publishRuleSet
+      summary: Publish a new rule set
+      description: >
+        Replaces every rule with a new version. Each rule is checked first (id, stage,
+        scope target exists, JSONLogic operators, effect fits the stage); errors come back
+        per rule. Bookings keep the rule set version they were checked against.
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishRulesRequest"
+      responses:
+        "200":
+          description: The new rule set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleSet"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/StaleVersion"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /rules/versions:
+    get:
+      operationId: listRuleSetVersions
+      summary: Rule set history
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: Every published version, newest first, without the rules.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleSetVersionList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /rules/versions/{version}:
+    get:
+      operationId: getRuleSetVersion
+      summary: One past rule set
+      tags: [rules]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/Version"
+      responses:
+        "200":
+          description: The rule set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleSet"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /payments/reconciliation:
+    get:
+      operationId: listPaymentsToReconcile
+      summary: Gateway messages a person must look at
+      description: Money for a booking that is gone, wrong amounts, unknown sessions.
+      tags: [payments]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+      responses:
+        "200":
+          description: The queue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentEventList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /payments/{paymentId}:
+    get:
+      operationId: getPayment
+      summary: Get a payment
+      description: With its refunds, gateway messages and status history. The booker or staff with payment.read.
+      tags: [payments]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/PaymentId"
+      responses:
+        "200":
+          description: The payment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /payments/{paymentId}/mark-paid:
+    post:
+      operationId: markPaymentPaid
+      summary: Record a payment taken at the desk
+      description: pending → paid; the booking moves on (confirmed, or pending_approval if approval is needed).
+      tags: [payments]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/PaymentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkPaidRequest"
+      responses:
+        "200":
+          description: The payment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /refunds/{refundId}/mark-succeeded:
+    post:
+      operationId: markRefundSucceeded
+      summary: Record a refund paid out at the desk
+      tags: [payments]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/RefundId"
+      responses:
+        "200":
+          description: The payment, now refunded or partially refunded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/InvalidTransition"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /webhooks/payments/{gateway}/tenants/{tenantId}:
+    post:
+      operationId: receivePaymentWebhook
+      summary: Payment gateway callback
+      description: >
+        Called by the payment gateway, not by apps: no JWT and no X-Tenant-Id. The tenant
+        is part of the callback URL registered with the gateway; the body is signed
+        (`X-Signature`: HMAC-SHA256 of the raw body, hex). Every message is stored first
+        and answered 200, duplicates and bad signatures included, so the gateway stops
+        resending; `outcome` says what happened.
+      tags: [payments]
+      security: []
+      parameters:
+        - name: gateway
+          in: path
+          required: true
+          schema:
+            type: string
+            example: mock
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: X-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentWebhookRequest"
+      responses:
+        "200":
+          description: Stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookAck"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationFailed"
+
+  /events:
+    get:
+      operationId: listEvents
+      summary: The tenant's event log
+      description: Events (docs/examples/event.json) newest first, with their delivery state.
+      tags: [events]
+      parameters:
+        - $ref: "#/components/parameters/TenantId"
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: subjectId
+          in: query
+          description: Only events about this booking, resource, payment, member...
+          required: false
+          schema:
+            $ref: "#/components/schemas/Uuid"
+        - name: name
+          in: query
+          description: Name prefix, e.g. `booking.` or `payment.paid`.
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A page of events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "422":
           $ref: "#/components/responses/ValidationFailed"
 
@@ -576,6 +2101,56 @@ components:
       schema:
         type: string
 
+    SiteId:
+      name: siteId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    MemberId:
+      name: memberId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    RoleId:
+      name: roleId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    PaymentId:
+      name: paymentId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    RefundId:
+      name: refundId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    ExceptionId:
+      name: exceptionId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/Uuid"
+    FieldKey:
+      name: fieldKey
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-z][a-z0-9_]*$"
+    Version:
+      name: version
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
   responses:
     Unauthenticated:
       description: Missing, invalid or expired token.
@@ -629,6 +2204,18 @@ components:
             bookingDenied:
               $ref: "#/components/examples/BookingDeniedExample"
 
+    ResourceStatusChanged:
+      description: The resource and the open bookings still on it (nothing is auto-cancelled).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ResourceStatusChange"
+    TooManyRequests:
+      description: Too many sign-in attempts from this address; retry later (Retry-After).
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetails"
   schemas:
     Uuid:
       type: string
@@ -846,6 +2433,84 @@ components:
           $ref: "#/components/schemas/CheckInPolicy"
         cancellation:
           $ref: "#/components/schemas/CancellationPolicy"
+        limits:
+          $ref: "#/components/schemas/LimitsPolicy"
+        buffers:
+          $ref: "#/components/schemas/BuffersPolicy"
+        payment:
+          $ref: "#/components/schemas/PaymentPolicy"
+
+    LimitsPolicy:
+      type: object
+      description: >
+        Optional in requests: keys left out keep the previous version's value (or the
+        platform default). Always returned in full.
+      properties:
+        minDurationMinutes:
+          type: integer
+          minimum: 0
+        maxDurationMinutes:
+          type: integer
+          minimum: 1
+        leadTimeMinutes:
+          type: integer
+          minimum: 0
+          description: A booking must start at least this many minutes from now.
+        bookingWindowDays:
+          type: integer
+          minimum: 1
+          maximum: 730
+          description: How many days ahead bookings open.
+
+    BuffersPolicy:
+      type: object
+      description: Time blocked before and after each booking (setup, cleaning). Not shown to members.
+      properties:
+        beforeMinutes:
+          type: integer
+          minimum: 0
+        afterMinutes:
+          type: integer
+          minimum: 0
+
+    RefundRule:
+      type: object
+      required: [minutesBefore, percent]
+      properties:
+        minutesBefore:
+          type: integer
+          minimum: 0
+          description: Applies when cancelling at least this many minutes before the start.
+        percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+
+    PaymentPolicy:
+      type: object
+      description: >
+        `upfront`: the booking waits in awaiting_payment, holding the slot for
+        `holdMinutes`, until paid (gateway webhook or desk). `none`: free.
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [none, upfront]
+        amountMinor:
+          type: integer
+          minimum: 0
+          description: Price in the tenant currency's minor unit (VND has none).
+        per:
+          type: string
+          enum: [booking, hour]
+        holdMinutes:
+          type: integer
+          minimum: 1
+        refundRules:
+          type: array
+          description: Largest minutesBefore first; the first rule met applies. Empty means 100%.
+          items:
+            $ref: "#/components/schemas/RefundRule"
 
     ResourceType:
       type: object
@@ -861,6 +2526,13 @@ components:
         version:
           type: integer
           description: Config version this resource type is on.
+        slotMinutes:
+          type: integer
+          nullable: true
+          description: Slot length used by availability and booking alignment.
+        bookingMode:
+          type: string
+          enum: [exclusive, capacity, access_pass]
         fields:
           type: array
           items:
@@ -883,6 +2555,10 @@ components:
           pattern: "^[a-z][a-z0-9_]*$"
         label:
           type: string
+        slotMinutes:
+          type: integer
+          default: 30
+          description: Must divide a day (5, 10, 15, 20, 30, 60, 120...).
         fields:
           type: array
           items:
@@ -898,8 +2574,13 @@ components:
         baseVersion:
           type: integer
           description: The resource type's `version` this edit was based on. Stale → `STALE_VERSION`.
+        label:
+          type: string
+        slotMinutes:
+          type: integer
         flowConfig:
           $ref: "#/components/schemas/FlowConfig"
+          description: An edit that changes no policy key publishes no new version.
 
     ResourceTypeList:
       type: object
@@ -925,6 +2606,14 @@ components:
           $ref: "#/components/schemas/Uuid"
         label:
           type: string
+        code:
+          type: string
+          description: Readable code, unique per site, derived from the label.
+        status:
+          $ref: "#/components/schemas/ResourceStatus"
+        capacity:
+          type: integer
+          minimum: 1
         customFieldValues:
           type: object
           description: Keyed by the resource type's field keys.
@@ -946,6 +2635,10 @@ components:
           $ref: "#/components/schemas/Uuid"
         label:
           type: string
+        capacity:
+          type: integer
+          minimum: 1
+          default: 1
         customFieldValues:
           type: object
           additionalProperties: true
@@ -1098,6 +2791,17 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/BookingHistoryEntry"
+        publicCode:
+          type: string
+          description: Short code printed on the ticket, e.g. BK-7F3K2Q.
+        channel:
+          type: string
+          enum: [web, operator, api]
+        payment:
+          allOf:
+            - $ref: "#/components/schemas/PaymentSummary"
+          nullable: true
+          description: Null only for bookings made before payments were recorded.
         createdAt:
           type: string
           format: date-time
@@ -1146,6 +2850,1084 @@ components:
         nextCursor:
           type: string
           nullable: true
+
+    ResourceStatus:
+      type: string
+      enum: [active, inactive, maintenance, archived]
+
+    UpdateResourceRequest:
+      type: object
+      description: Fields left out are not touched. customFieldValues replaces all values and is checked against the type's latest form.
+      properties:
+        label:
+          type: string
+        customFieldValues:
+          type: object
+          additionalProperties: true
+
+    ResourceMoveRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+
+    BookingSummary:
+      type: object
+      required: [id, publicCode, resourceId, memberId, start, end, status]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        publicCode:
+          type: string
+        resourceId:
+          $ref: "#/components/schemas/Uuid"
+        memberId:
+          $ref: "#/components/schemas/Uuid"
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/BookingStatus"
+
+    ResourceStatusChange:
+      type: object
+      required: [resource, affectedBookings]
+      properties:
+        resource:
+          $ref: "#/components/schemas/Resource"
+        affectedBookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookingSummary"
+
+    AddFieldsRequest:
+      type: object
+      required: [fields]
+      properties:
+        fields:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/FieldDefinition"
+
+    PolicyVersion:
+      type: object
+      required: [version, status, flowConfig]
+      properties:
+        version:
+          type: integer
+        status:
+          type: string
+          enum: [draft, published, superseded]
+        basedOnVersion:
+          type: integer
+          nullable: true
+        flowConfig:
+          $ref: "#/components/schemas/FlowConfig"
+        publishedBy:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PolicyVersionList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyVersion"
+
+    RestoreVersionRequest:
+      type: object
+      required: [baseVersion]
+      properties:
+        baseVersion:
+          type: integer
+          description: The current version you saw. Stale → `STALE_VERSION`.
+
+    Site:
+      type: object
+      required: [id, code, name, timezone, address, status, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        code:
+          type: string
+        name:
+          type: string
+        timezone:
+          type: string
+          description: IANA name. Every local time of the site uses it.
+          example: Asia/Ho_Chi_Minh
+        address:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+          enum: [active, inactive, archived]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    SiteList:
+      type: object
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Site"
+        nextCursor:
+          type: string
+          nullable: true
+
+    CreateSiteRequest:
+      type: object
+      required: [name, timezone]
+      properties:
+        code:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9-]{0,39}$"
+          description: Derived from the name when left out.
+        name:
+          type: string
+        timezone:
+          type: string
+        address:
+          type: object
+          additionalProperties: true
+
+    UpdateSiteRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: object
+          additionalProperties: true
+
+    WeeklyHoursRange:
+      type: object
+      required: [weekday, opens, closes]
+      properties:
+        weekday:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: 0 = Monday ... 6 = Sunday.
+        opens:
+          type: string
+          pattern: "^[0-2][0-9]:[0-5][0-9]$"
+          description: Local time of the site, HH:MM.
+        closes:
+          type: string
+          pattern: "^[0-2][0-9]:[0-5][0-9]$"
+
+    SetHoursRequest:
+      type: object
+      required: [weekly]
+      properties:
+        weekly:
+          type: array
+          description: A weekday with no range is closed.
+          items:
+            $ref: "#/components/schemas/WeeklyHoursRange"
+
+    SiteHours:
+      type: object
+      required: [siteId, timezone, weekly]
+      properties:
+        siteId:
+          $ref: "#/components/schemas/Uuid"
+        timezone:
+          type: string
+        weekly:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeeklyHoursRange"
+
+    ResourceHours:
+      type: object
+      required: [resourceId, siteId, timezone, inheritsSiteHours, weekly]
+      properties:
+        resourceId:
+          $ref: "#/components/schemas/Uuid"
+        siteId:
+          $ref: "#/components/schemas/Uuid"
+        timezone:
+          type: string
+        inheritsSiteHours:
+          type: boolean
+        weekly:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeeklyHoursRange"
+
+    AvailabilityException:
+      type: object
+      required: [id, kind, start, end]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        siteId:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          nullable: true
+        resourceId:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          nullable: true
+        kind:
+          type: string
+          enum: [block, open]
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        reasonCode:
+          type: string
+          nullable: true
+        note:
+          type: string
+          nullable: true
+        createdBy:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    AvailabilityExceptionList:
+      type: object
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AvailabilityException"
+        nextCursor:
+          type: string
+          nullable: true
+
+    CreateAvailabilityExceptionRequest:
+      type: object
+      required: [kind, start, end]
+      description: Exactly one of siteId and resourceId.
+      properties:
+        siteId:
+          $ref: "#/components/schemas/Uuid"
+        resourceId:
+          $ref: "#/components/schemas/Uuid"
+        kind:
+          type: string
+          enum: [block, open]
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time
+        reasonCode:
+          type: string
+          enum: [holiday, maintenance, private_event, other]
+        note:
+          type: string
+
+    AvailabilityExceptionCreated:
+      type: object
+      required: [exception, affectedBookings]
+      properties:
+        exception:
+          $ref: "#/components/schemas/AvailabilityException"
+        affectedBookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/BookingSummary"
+
+    BookingPreview:
+      type: object
+      required: [allowed, status, reasons, slotFree, price, appliedConfig, trace]
+      properties:
+        allowed:
+          type: boolean
+          description: True when every step passes and the slot is free right now.
+        status:
+          allOf:
+            - $ref: "#/components/schemas/BookingStatus"
+          nullable: true
+          description: The status the booking would start in; null when denied.
+        reasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleReason"
+        slotFree:
+          type: boolean
+          description: Not binding; the database decides at POST /bookings.
+        price:
+          type: object
+          required: [amountMinor, currency]
+          properties:
+            amountMinor:
+              type: integer
+            currency:
+              type: string
+            breakdown:
+              type: object
+              additionalProperties: true
+        appliedConfig:
+          $ref: "#/components/schemas/AppliedConfig"
+        trace:
+          type: array
+          description: Every rule that ran, by stage, and what it did.
+          items:
+            type: object
+            properties:
+              stage:
+                type: string
+              ruleId:
+                type: string
+              matched:
+                type: boolean
+                nullable: true
+              result:
+                type: string
+
+    Permission:
+      type: object
+      required: [code, description]
+      properties:
+        code:
+          type: string
+          example: booking.approve
+        description:
+          type: string
+
+    PermissionList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Permission"
+
+    Role:
+      type: object
+      required: [id, code, name, isSystem, permissions, createdAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        code:
+          type: string
+        name:
+          type: string
+        isSystem:
+          type: boolean
+        permissions:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    RoleList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Role"
+
+    CreateRoleRequest:
+      type: object
+      required: [code, name, permissions]
+      properties:
+        code:
+          type: string
+          pattern: "^[a-z][a-z0-9_]{1,40}$"
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    SetRolePermissionsRequest:
+      type: object
+      required: [permissions]
+      properties:
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    RoleGrantRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          description: Role code (e.g. staff) or role id.
+        siteId:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          nullable: true
+          description: Limit the role to one site; absent or null = every site.
+
+    RoleGrant:
+      type: object
+      required: [roleId, role, siteId]
+      properties:
+        roleId:
+          $ref: "#/components/schemas/Uuid"
+        role:
+          type: string
+        siteId:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          nullable: true
+
+    MemberStatus:
+      type: string
+      enum: [invited, active, disabled]
+
+    Member:
+      type: object
+      required: [id, userId, status, roles, createdAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        userId:
+          $ref: "#/components/schemas/Uuid"
+        email:
+          type: string
+          nullable: true
+        displayName:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/MemberStatus"
+        roles:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoleGrant"
+        invitedBy:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          nullable: true
+        joinedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    MemberList:
+      type: object
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Member"
+        nextCursor:
+          type: string
+          nullable: true
+
+    InviteMemberRequest:
+      type: object
+      required: [email, roles]
+      properties:
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        roles:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/RoleGrantRequest"
+
+    SetMemberRolesRequest:
+      type: object
+      required: [roles]
+      properties:
+        roles:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/RoleGrantRequest"
+
+    Me:
+      type: object
+      required: [userId, tenantId, member, permissions]
+      properties:
+        userId:
+          $ref: "#/components/schemas/Uuid"
+        tenantId:
+          $ref: "#/components/schemas/Uuid"
+        member:
+          $ref: "#/components/schemas/Member"
+        permissions:
+          type: object
+          description: Permission code → site ids where it applies; "*" means every site.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    RuleEffect:
+      type: object
+      required: [type]
+      description: >
+        deny (any stage) | allowed_groups {groups} (eligibility) | max_duration {minutes},
+        advance_window {days}, quota {per: day|week, maxBookings?, maxMinutes?} (limits) |
+        require_approval (approval).
+      properties:
+        type:
+          type: string
+          enum: [deny, allowed_groups, max_duration, advance_window, quota, require_approval]
+      additionalProperties: true
+
+    Rule:
+      type: object
+      description: Example docs/examples/rule.json.
+      required: [id, stage, effect]
+      properties:
+        id:
+          type: string
+          pattern: "^[a-z0-9][a-z0-9_-]{0,62}$"
+        name:
+          type: string
+        scope:
+          type: object
+          description: "{} = whole tenant, or one of siteId, resourceType (key), resourceId."
+          properties:
+            siteId:
+              $ref: "#/components/schemas/Uuid"
+            resourceType:
+              type: string
+            resourceId:
+              $ref: "#/components/schemas/Uuid"
+        stage:
+          type: string
+          enum: [eligibility, limits, approval]
+        priority:
+          type: integer
+          default: 0
+        when:
+          description: JSONLogic over booking, resource, user, user.groups, time, usage. Absent = always.
+        effect:
+          $ref: "#/components/schemas/RuleEffect"
+        message:
+          type: string
+          description: Shown to the member when this rule says no. Defaults to `name`.
+        enabled:
+          type: boolean
+          default: true
+
+    RuleSet:
+      type: object
+      required: [version, rules]
+      properties:
+        version:
+          type: integer
+        note:
+          type: string
+          nullable: true
+        publishedBy:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        ruleCount:
+          type: integer
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/Rule"
+
+    RuleSetSummary:
+      type: object
+      required: [version, ruleCount]
+      properties:
+        version:
+          type: integer
+        note:
+          type: string
+          nullable: true
+        publishedBy:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          nullable: true
+        publishedAt:
+          type: string
+          format: date-time
+        ruleCount:
+          type: integer
+
+    RuleSetVersionList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleSetSummary"
+
+    PublishRulesRequest:
+      type: object
+      required: [baseVersion, rules]
+      properties:
+        baseVersion:
+          type: integer
+          minimum: 0
+          description: The current version you saw (0 before the first publish).
+        note:
+          type: string
+        rules:
+          type: array
+          maxItems: 200
+          items:
+            $ref: "#/components/schemas/Rule"
+
+    PaymentStatus:
+      type: string
+      enum:
+        - pending
+        - paid
+        - failed
+        - expired
+        - refund_pending
+        - refunded
+        - partially_refunded
+        - waived
+
+    PaymentSummary:
+      type: object
+      required: [id, status, amountMinor, refundedMinor, currency]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        status:
+          $ref: "#/components/schemas/PaymentStatus"
+        amountMinor:
+          type: integer
+        refundedMinor:
+          type: integer
+        currency:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    Refund:
+      type: object
+      required: [id, paymentId, amountMinor, status, reasonCode, requestedAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        paymentId:
+          $ref: "#/components/schemas/Uuid"
+        amountMinor:
+          type: integer
+        status:
+          type: string
+          enum: [pending, succeeded, failed]
+        reasonCode:
+          type: string
+        appliedRule:
+          type: object
+          nullable: true
+          additionalProperties: true
+        requestedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    PaymentEvent:
+      type: object
+      required: [id, gateway, gatewayEventId, type, signatureVerified, outcome, receivedAt]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        paymentId:
+          allOf:
+            - $ref: "#/components/schemas/Uuid"
+          nullable: true
+        gateway:
+          type: string
+        gatewayEventId:
+          type: string
+        type:
+          type: string
+        signatureVerified:
+          type: boolean
+        outcome:
+          type: string
+          enum: [applied, duplicate, ignored, needs_reconciliation]
+        receivedAt:
+          type: string
+          format: date-time
+
+    PaymentEventList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentEvent"
+
+    Payment:
+      allOf:
+        - $ref: "#/components/schemas/PaymentSummary"
+        - type: object
+          required: [bookingId, gateway, refunds, events, history]
+          properties:
+            bookingId:
+              $ref: "#/components/schemas/Uuid"
+            gateway:
+              type: string
+            method:
+              type: string
+              nullable: true
+            sessionId:
+              type: string
+              nullable: true
+            paidAt:
+              type: string
+              format: date-time
+              nullable: true
+            refunds:
+              type: array
+              items:
+                $ref: "#/components/schemas/Refund"
+            events:
+              type: array
+              items:
+                $ref: "#/components/schemas/PaymentEvent"
+            history:
+              type: array
+              items:
+                type: object
+                required: [toStatus, action, actorKind, occurredAt]
+                properties:
+                  fromStatus:
+                    type: string
+                    nullable: true
+                  toStatus:
+                    type: string
+                  action:
+                    type: string
+                  actorKind:
+                    type: string
+                    enum: [user, system, gateway, api_client]
+                  occurredAt:
+                    type: string
+                    format: date-time
+
+    MarkPaidRequest:
+      type: object
+      required: [method]
+      properties:
+        method:
+          type: string
+          enum: [cash, card, bank_transfer, other]
+        note:
+          type: string
+
+    PaymentWebhookRequest:
+      type: object
+      required: [eventId, type]
+      description: The mock gateway's message. A real gateway gets its own adapter.
+      properties:
+        eventId:
+          type: string
+        type:
+          type: string
+          enum: [payment.succeeded, payment.failed, refund.succeeded, refund.failed]
+        sessionId:
+          type: string
+          description: Payment.sessionId, for payment.* messages.
+        refundId:
+          $ref: "#/components/schemas/Uuid"
+        amountMinor:
+          type: integer
+        paymentRef:
+          type: string
+        reason:
+          type: string
+
+    WebhookAck:
+      type: object
+      required: [received, outcome]
+      properties:
+        received:
+          type: boolean
+        outcome:
+          type: string
+          enum: [applied, duplicate, ignored, needs_reconciliation]
+
+    Event:
+      type: object
+      description: docs/examples/event.json plus delivery state.
+      required: [id, name, version, tenantId, subject, actor, occurredAt, changes, configVersions, delivery]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+          example: booking.confirmed
+        version:
+          type: integer
+        tenantId:
+          $ref: "#/components/schemas/Uuid"
+        subject:
+          type: object
+          required: [type, id]
+          properties:
+            type:
+              type: string
+            id:
+              type: string
+        actor:
+          $ref: "#/components/schemas/Actor"
+        occurredAt:
+          type: string
+          format: date-time
+        changes:
+          type: object
+          additionalProperties: true
+        configVersions:
+          type: object
+          additionalProperties:
+            type: integer
+        data:
+          type: object
+          additionalProperties: true
+        delivery:
+          type: object
+          required: [publishedAt, attempts]
+          properties:
+            publishedAt:
+              type: string
+              format: date-time
+              nullable: true
+            attempts:
+              type: integer
+            lastError:
+              type: string
+              nullable: true
+
+    EventList:
+      type: object
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Event"
+        nextCursor:
+          type: string
+          nullable: true
+
+    RegisterRequest:
+      type: object
+      required: [email, password, fullName]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          description: At least 8 characters, not all digits, not a common password.
+        fullName:
+          type: string
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    ResetPasswordRequest:
+      type: object
+      required: [token, password]
+      properties:
+        token:
+          type: string
+          description: The `token` query parameter of the emailed link.
+        password:
+          type: string
+          minLength: 8
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+
+    AcceptInvitationLinkRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+        password:
+          type: string
+          description: "New person: the password to set. Existing account: its current password."
+        fullName:
+          type: string
+
+    GuestTokenRequest:
+      type: object
+      required: [tenantId, name]
+      properties:
+        tenantId:
+          $ref: "#/components/schemas/Uuid"
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+
+    SignedInUser:
+      type: object
+      required: [id, email, fullName]
+      properties:
+        id:
+          $ref: "#/components/schemas/Uuid"
+        email:
+          type: string
+          nullable: true
+        fullName:
+          type: string
+          nullable: true
+
+    TokenPair:
+      type: object
+      required: [accessToken, tokenType, expiresIn, user]
+      properties:
+        accessToken:
+          type: string
+          description: "JWT for `Authorization: Bearer`. Short-lived."
+        refreshToken:
+          type: string
+          description: Single use; exchange it at /auth/refresh. Absent for guests.
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresIn:
+          type: integer
+          description: Seconds until the access token expires.
+        user:
+          $ref: "#/components/schemas/SignedInUser"
+
+    InvitationAccepted:
+      allOf:
+        - $ref: "#/components/schemas/TokenPair"
+        - type: object
+          required: [tenantId]
+          properties:
+            tenantId:
+              $ref: "#/components/schemas/Uuid"
+
+    GuestToken:
+      allOf:
+        - $ref: "#/components/schemas/TokenPair"
+        - type: object
+          required: [tenantId, memberId]
+          properties:
+            tenantId:
+              $ref: "#/components/schemas/Uuid"
+            memberId:
+              $ref: "#/components/schemas/Uuid"
+
+    Accepted:
+      type: object
+      required: [sent]
+      properties:
+        sent:
+          type: boolean
+
+    MyTenant:
+      type: object
+      required: [tenantId, slug, name, memberId, status]
+      properties:
+        tenantId:
+          $ref: "#/components/schemas/Uuid"
+        slug:
+          type: string
+        name:
+          type: string
+        memberId:
+          $ref: "#/components/schemas/Uuid"
+        status:
+          $ref: "#/components/schemas/MemberStatus"
+
+    MyTenantList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/MyTenant"
 
   examples:
     CreateResourceTypeRequestPhoneBooth:
