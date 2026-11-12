@@ -4,6 +4,7 @@ claim rows with FOR UPDATE SKIP LOCKED."""
 
 import logging
 import signal
+import threading
 import time
 from datetime import datetime, timedelta
 from typing import Any
@@ -12,7 +13,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import Q
-from django.utils import timezone
+from django.utils import autoreload, timezone
 
 from kernel.jobs import handler_for
 from kernel.models import JobStatus, ScheduledJob
@@ -75,22 +76,37 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser: Any) -> None:
         parser.add_argument("--once", action="store_true", help="Run one pass and exit.")
+        parser.add_argument(
+            "--reload",
+            action="store_true",
+            help="Restart when a Python file changes (local development: infra/compose.dev.yaml).",
+        )
 
     def handle(self, *args: Any, **options: Any) -> None:
+        if options["reload"]:
+            # Django's own reloader, as `runserver` uses: it runs the loop in a child process
+            # and restarts it on a file change. The loop then runs in a thread, where Python
+            # does not allow signal handlers; the reloader handles SIGTERM itself.
+            autoreload.run_with_reloader(self.loop, once=options["once"])
+        else:
+            self.loop(once=options["once"])
+
+    def loop(self, once: bool = False) -> None:
         stopping = False
 
         def stop(*_: Any) -> None:
             nonlocal stopping
             stopping = True
 
-        signal.signal(signal.SIGTERM, stop)
-        signal.signal(signal.SIGINT, stop)
+        if threading.current_thread() is threading.main_thread():
+            signal.signal(signal.SIGTERM, stop)
+            signal.signal(signal.SIGINT, stop)
         poll = settings.WORKER["POLL_SECONDS"]
         logger.info("worker started")
         while not stopping:
             events = relay_batch()
             jobs = run_due_jobs()
-            if options["once"]:
+            if once:
                 break
             if not events and not jobs:
                 time.sleep(poll)

@@ -1,27 +1,48 @@
 # Local stack: database, migrations, API and worker (docs/operations.md, "Environments").
 # Apps run natively (`pnpm dev`) and call the API on http://localhost:8000.
 #
-#   python scripts/dev.py up        # same as: docker compose -f infra/compose.yaml up -d --build
+#   python scripts/dev.py up        # = docker compose -f infra/compose.yaml -f infra/compose.dev.yaml
+#                                   #       --env-file core/api/.env up -d --build
+#
+# compose.dev.yaml (local only, never CI) mounts core/api into the containers and turns on hot
+# reload; without it, as here in CI, the containers run the code baked into the image.
 #   python scripts/dev.py seed      # a demo tenant with people and tokens
 #   docker compose -f infra/compose.yaml up -d postgres      # database only, for pytest
+#
+# Configuration comes from core/api/.env (copy of core/api/.env.example): every ${VAR:-default}
+# below reads it when scripts/dev.py passes --env-file. Without that file the defaults apply,
+# so `docker compose up` alone (CI) still works. Values fixed here, not read from .env: the
+# settings module (containers always run production settings) and the database host.
 #
 # The API connects as booking_app: not a superuser, no BYPASSRLS, so row-level security
 # applies to it (docs/backend.md, "Data and tenancy").
 
 x-api-env: &api-env
   DJANGO_SETTINGS_MODULE: app.settings.production
-  DJANGO_SECRET_KEY: compose-only-not-secret
-  DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,api
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-compose-only-not-secret}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,api}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
   DATABASE_URL: postgresql://booking_app:booking_app@postgres:5432/booking_core
-  # Local only. Real deployments verify tokens from the auth service (JWT_JWKS_URL).
-  JWT_SECRET: local-only-jwt-secret-change-me-32bytes
-  JWT_ISSUER: https://auth.local
-  JWT_AUDIENCE: booking-core
+  # HS256 secret of every token the core issues and verifies (kernel/auth.py, modules/identity).
+  JWT_SECRET: ${JWT_SECRET:-local-only-jwt-secret-change-me-32bytes}
+  JWT_ISSUER: ${JWT_ISSUER:-https://auth.local}
+  JWT_AUDIENCE: ${JWT_AUDIENCE:-booking-core}
+  JWT_JWKS_URL: ${JWT_JWKS_URL:-}
+  AUTH_RATE: ${AUTH_RATE:-30/min}
+  AUTH_APP_URL: ${AUTH_APP_URL:-http://localhost:5174}
+  EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+  EMAIL_HOST: ${EMAIL_HOST:-localhost}
+  EMAIL_PORT: ${EMAIL_PORT:-25}
+  EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+  EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+  EMAIL_USE_TLS: ${EMAIL_USE_TLS:-false}
+  DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-Booking Core <no-reply@localhost>}
   # Mock payment gateway of local runs and demos (modules/payments): webhooks are signed
   # with this secret (HMAC-SHA256 of the body, header X-Signature).
-  PAYMENT_WEBHOOK_SECRET: local-only-webhook-secret
+  PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-local-only-webhook-secret}
+  WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-1}
   # Apps on Vite call the API from another origin in local development only.
-  CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174
+  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:5174}
 
 services:
   postgres:
@@ -55,7 +76,7 @@ services:
       # Browsable docs at http://localhost:8000/api/docs (core/api/app/docs.py), read-only
       # from this checkout. WORKSPACE_DOCS_DIR (set by scripts/dev.py when a docs/ folder sits
       # next to the repository) adds the team's notes.
-      API_DOCS_ENABLED: "true"
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-true}
       API_DOCS_REPO_DIR: /repo
       API_DOCS_WORKSPACE_DIR: ${WORKSPACE_DOCS_DIR:+/workspace-docs}
     volumes:

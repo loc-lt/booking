@@ -1,0 +1,29 @@
+# Local hot reload, layered on compose.yaml by scripts/dev.py (never by CI or a server):
+#
+#   docker compose -f infra/compose.yaml -f infra/compose.dev.yaml --env-file core/api/.env up -d --build
+#
+# The source folder is mounted over the image's copy, so an edit under core/api reaches the
+# containers at once: the API (gunicorn --reload) and the worker (run_worker --reload) restart
+# themselves within about a second. Installed packages live in /opt/venv, outside the mount.
+# Rebuild (`python scripts/dev.py up`) only after pyproject.toml or uv.lock changes.
+#
+# The mount is writable so that `python scripts/dev.py manage makemigrations` writes the new
+# migration into the checkout. Bytecode is not written (PYTHONDONTWRITEBYTECODE in the image).
+
+x-source: &source ../core/api:/app
+
+services:
+  migrate:
+    volumes:
+      - *source
+
+  api:
+    command: ["gunicorn", "app.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2",
+              "--reload", "--access-logfile", "-"]
+    volumes:
+      - *source
+
+  worker:
+    command: ["python", "manage.py", "run_worker", "--reload"]
+    volumes:
+      - *source

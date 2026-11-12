@@ -1,3 +1,32 @@
+# Dependencies are managed with uv (https://docs.astral.sh/uv/): `uv sync` creates .venv from
+# uv.lock, `uv add <package>` adds one (ask first: docs/CLAUDE.md, "No new dependencies").
+# Each runtime dependency is listed in README.md with why it is needed.
+[project]
+name = "booking-core-api"
+version = "0.1.0"
+description = "Booking core API and worker (Django + DRF): one image, two commands."
+requires-python = ">=3.12"
+dependencies = [
+    "django>=5.2,<5.3",
+    "djangorestframework>=3.16,<3.17",
+    "psycopg[binary]>=3.2,<4",
+    "pyjwt[crypto]>=2.10,<3",
+    "jsonschema>=4.23,<5",
+    "gunicorn>=23,<24",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3,<9",
+    "pytest-django>=4.11,<5",
+    "ruff>=0.11,<1",
+    "import-linter>=2.3,<3",
+]
+
+[tool.uv]
+# An application, not a library: uv installs the dependencies only, never builds this folder.
+package = false
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "app.settings.test"
 django_find_project = true

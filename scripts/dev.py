@@ -2,6 +2,11 @@
 """One entry point for local work on the booking core. Runs on Windows, macOS and Linux
 with plain Python 3.10+ and Docker; no make, no shell tricks.
 
+Configuration lives in core/api/.env (created from .env.example on the first run).
+Containers run with hot reload (infra/compose.dev.yaml): an edit under core/api restarts the
+API and the worker by itself; rebuild with `up` only after pyproject.toml or uv.lock changes.
+`check` needs uv (https://docs.astral.sh/uv/; `pip install uv` is enough).
+
     python scripts/dev.py up            # build and start postgres, migrate, api :8000, worker
     python scripts/dev.py docs          # open http://localhost:8000/api/docs (Swagger, ReDoc, docs)
     python scripts/dev.py seed          # demo tenant: 2 sites, 3 resource types, rules, people
@@ -9,7 +14,7 @@ with plain Python 3.10+ and Docker; no make, no shell tricks.
     python scripts/dev.py timers <tenantId>   # make that tenant's pending timers due now
     python scripts/dev.py logs [api|worker|postgres]
     python scripts/dev.py psql          # SQL shell as the app role (RLS applies)
-    python scripts/dev.py check         # what CI runs: ruff, import contracts, pytest
+    python scripts/dev.py check         # what CI runs: ruff, import contracts, pytest (via uv)
     python scripts/dev.py down          # stop (data kept)
     python scripts/dev.py reset         # stop and DELETE the local database, then up
 
@@ -31,7 +36,30 @@ DOCS_URL = "http://localhost:8000/api/docs"
 if (ROOT.parent / "docs").is_dir():
     os.environ.setdefault("WORKSPACE_DOCS_DIR", str(ROOT.parent / "docs"))
 API_DIR = ROOT / "core" / "api"
-COMPOSE = ["docker", "compose", "-f", str(ROOT / "infra" / "compose.yaml")]
+ENV_FILE = API_DIR / ".env"
+ENV_EXAMPLE = API_DIR / ".env.example"
+
+
+def ensure_env_file() -> None:
+    """First run: copy .env.example to .env, the one configuration file of local work
+    (read by Django natively and by Compose through --env-file)."""
+    if not ENV_FILE.exists() and ENV_EXAMPLE.exists():
+        shutil.copyfile(ENV_EXAMPLE, ENV_FILE)
+        print(f"Created {ENV_FILE} from .env.example (local defaults; edit it if you need to).")
+
+
+ensure_env_file()
+# compose.yaml is the stack CI also starts; compose.dev.yaml adds the local hot reload.
+COMPOSE = [
+    "docker",
+    "compose",
+    "-f",
+    str(ROOT / "infra" / "compose.yaml"),
+    "-f",
+    str(ROOT / "infra" / "compose.dev.yaml"),
+]
+if ENV_FILE.exists():
+    COMPOSE += ["--env-file", str(ENV_FILE)]
 # Management commands inside the api container run with local settings: DEBUG on, so dev
 # tokens can be minted. The server itself keeps running with production settings.
 EXEC_LOCAL = [
@@ -66,17 +94,11 @@ def wait_healthy(url: str = "http://localhost:8000/api/healthz", seconds: int = 
     sys.exit("API did not come up; see: python scripts/dev.py logs api")
 
 
-def venv_python() -> str:
-    for candidate in (
-        API_DIR / ".venv" / "Scripts" / "python.exe",
-        API_DIR / ".venv" / "bin" / "python",
-    ):
-        if candidate.exists():
-            return str(candidate)
-    sys.exit(
-        "No virtualenv in core/api/.venv. Create it once:\n"
-        "  cd core/api && python -m venv .venv && .venv/Scripts/pip install -r requirements-dev.txt"
-    )
+def uv_run() -> list[str]:
+    """`uv run --locked`: creates or updates core/api/.venv from uv.lock, then runs the tool."""
+    if shutil.which("uv") is None:
+        sys.exit("uv is not on PATH. Install it once: pip install uv (or see docs.astral.sh/uv).")
+    return ["uv", "run", "--locked"]
 
 
 def main(argv: list[str]) -> int:
@@ -146,13 +168,13 @@ def main(argv: list[str]) -> int:
     if cmd == "logs":
         return run([*COMPOSE, "logs", "-f", "--tail", "100", *args])
     if cmd == "check":
-        py = venv_python()
+        uv = uv_run()
         env = {**os.environ, "DJANGO_SETTINGS_MODULE": "app.settings.test"}
         for step in (
-            [py, "-m", "ruff", "check", "."],
-            [py, "-m", "ruff", "format", "--check", "."],
-            [str(Path(py).with_name("lint-imports" + (".exe" if os.name == "nt" else "")))],
-            [py, "-m", "pytest", "tests", "-q", *args],
+            [*uv, "ruff", "check", "."],
+            [*uv, "ruff", "format", "--check", "."],
+            [*uv, "lint-imports"],
+            [*uv, "pytest", "tests", "-q", *args],
         ):
             if run(step, cwd=API_DIR, env=env) != 0:
                 return 1
