@@ -129,31 +129,33 @@ TYPES: list[dict[str, Any]] = [
 ]
 
 
-def _rules(site_id: UUID) -> list[dict[str, Any]]:
+def _rules(site_id: UUID, type_ids: dict[str, str]) -> list[dict[str, Any]]:
     return [
         {
             "id": "guests-max-2h",
-            "name": "Khách vãng lai đặt tối đa 2 giờ",
-            "scope": {"resourceType": "meeting_room"},
-            "stage": "limits",
+            "label": "Khách vãng lai đặt tối đa 2 giờ",
+            "scope": {"resourceTypeId": type_ids["meeting_room"]},
             "priority": 10,
-            "when": {"in": ["guest", {"var": "user.groups"}]},
-            "effect": {"type": "max_duration", "minutes": 120},
+            "when": {"in": ["guest", {"var": "user.roles"}]},
+            "consequence": "deny",
+            "limit": {"type": "max_duration", "minutes": 120},
+            "enabled": True,
         },
         {
             "id": "members-3-per-day",
-            "name": "Mỗi thành viên tối đa 3 lượt mỗi ngày",
-            "stage": "limits",
-            "when": {"in": ["member", {"var": "user.groups"}]},
-            "effect": {"type": "quota", "per": "day", "maxBookings": 3},
+            "label": "Mỗi thành viên tối đa 3 lượt mỗi ngày",
+            "when": {"in": ["member", {"var": "user.roles"}]},
+            "consequence": "deny",
+            "limit": {"type": "quota", "per": "day", "maxBookings": 3},
+            "enabled": True,
         },
         {
             "id": "q1-long-needs-approval",
-            "name": "Ở Quận 1, đặt trên 3 giờ cần duyệt",
+            "label": "Ở Quận 1, đặt trên 3 giờ cần duyệt",
             "scope": {"siteId": str(site_id)},
-            "stage": "approval",
             "when": {">": [{"var": "booking.durationMinutes"}, 180]},
-            "effect": {"type": "require_approval"},
+            "consequence": "require_approval",
+            "enabled": True,
         },
     ]
 
@@ -259,12 +261,13 @@ class Command(BaseCommand):
             published = rules.publish(
                 tenant_id=tenant.id,
                 base_version=0,
-                rules=_rules(sites[0].id),
+                rules=_rules(sites[0].id, out["resourceTypes"]),
                 note="Demo rules",
                 membership_id=owner,
                 site_exists=lambda v: True,
-                type_key_exists=lambda v: True,
+                type_exists=lambda v: True,
                 resource_exists=lambda v: True,
+                priced=lambda k, v: True,
             )
             out["ruleSetVersion"] = published.version
 

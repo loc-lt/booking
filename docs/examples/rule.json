@@ -1,9 +1,10 @@
 {
   "id": "guests-max-2h",
-  "name": "Guests book at most 2 hours",
-  "scope": { "resourceType": "meeting_room" },
-  "stage": "limits",
+  "label": "Guests book at most 2 hours",
+  "scope": { "resourceTypeId": "0193f4c4-2d6e-7f6b-ba5d-4c2e9f8a7b6c" },
   "priority": 10,
-  "when": { "in": ["guest", { "var": "user.groups" }] },
-  "effect": { "type": "max_duration", "minutes": 120 }
+  "when": { "in": ["guest", { "var": "user.roles" }] },
+  "consequence": "deny",
+  "limit": { "type": "max_duration", "minutes": 120 },
+  "enabled": true
 }

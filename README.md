@@ -399,30 +399,53 @@ A new payment timing is a new `chargeOn` option, never a change to the pipeline 
 
 ## Rules
 
-A rule is **scope + stage + condition + effect + priority**. Tenants combine predefined effects; they never write new ones. Example: [examples/rule.json](docs/examples/rule.json).
+A rule is **scope + condition + consequence + priority**, with an optional **limit** on deny rules. Tenants combine these predefined parts; they never write new ones. Example: [examples/rule.json](docs/examples/rule.json).
 
 | Part | Values |
 | --- | --- |
-| Scope | Tenant, site, resource type or resource |
-| Stage | `eligibility`, `limits`, `approval` (`pricing` later) |
-| Condition (`when`) | JSONLogic over a fixed context: `booking`, `resource`, `user`, `user.groups`, `time`, `usage` |
-| Effect | `deny`, `require_approval`, `max_duration`, `advance_window`, `quota`, `allowed_groups` |
+| Scope | Tenant (`{}`), or one of `siteId`, `resourceTypeId`, `resourceId` |
+| Condition (`when`) | JSONLogic over a fixed context: `booking`, `resource`, `user`, `user.roles`, `time`, `usage`. Absent = always |
+| Consequence | `deny`, `require_approval`, `require_payment` |
+| Limit (deny only, optional) | `max_duration {minutes}`, `max_advance {days}`, `quota {per: day\|week, maxBookings?, maxMinutes?}` |
 | Priority | Higher runs first |
+| `label`, `message`, `enabled` | Name in the console; text shown to the member on a deny (defaults to `label`); `false` keeps the rule without applying it |
+
+`user.roles` holds the member's role codes in the tenant (`owner`, `admin`, `staff`, `member`, `guest`, and the tenant's own roles). There is no separate "groups" concept.
+
+An earlier version of this model had a `stage` (`eligibility`/`limits`/`approval`) and an `effect` object. Both are gone: `eligibility` and `limits` both denied, so one `deny` consequence loses nothing; "only these roles" (`allowed_groups`) is a deny with a negated `when`. Stored rule sets were converted by migration `rules/0003`.
+
+#### What each consequence does
+
+| Consequence | Without `limit` | With `limit` |
+| --- | --- | --- |
+| `deny` | The booking is refused when `when` matches | `when` decides who the limit applies to; the booking is refused only when it exceeds the limit |
+| `require_approval` | Adds approval on top of the resource type's `flowConfig.confirmation` | Not allowed |
+| `require_payment` | Makes this booking paid even when the type is free (`payment.mode: none`); the price is still the type's `flowConfig.payment.amountMinor` | Not allowed |
+
+Rules can only switch approval and payment **on**, never off: one source turns them on, so two rules can never disagree about it. A tenant that wants "always paid, except our team" sets the type free and writes one `require_payment` rule for everyone not in the team role. `flowConfig.confirmation` and `flowConfig.payment.mode` stay the no-exceptions default; rules handle the exceptions.
+
+A `require_payment` rule scoped to a resource type or resource that has no price is rejected at publish (`VALIDATION_FAILED` on `rules[i].consequence`). With a tenant or site scope the type is only known at booking time; a type without a price then stays free.
+
+The resource type's own limits (`flowConfig.limits`: min and max duration, lead time, booking window) stay where they are. They apply to everyone; rules add per-role or per-condition limits on top.
 
 ### How rules are evaluated
 
-1. Load the published rules for the booking's scope, most general first: tenant → site → resource type → resource.
+1. Load the enabled published rules for the booking's scope, most general first: tenant → site → resource type → resource.
 2. Build the context from the fixed keys above.
-3. For the current stage, evaluate each rule's condition, highest priority first, and collect the effects.
-4. Resolve conflicts: deny beats allow; ties go to the more specific scope.
-5. Return a decision and a **trace** naming every rule that matched and what it did.
+3. Evaluate every rule's condition in one pass, highest priority first, and collect the consequences: each matching `deny` adds a reason, any `require_approval` or `require_payment` match sets that flag.
+4. Resolve conflicts: deny beats allow. For `max_duration` and `max_advance`, the most specific matching scope wins, so a room can allow longer than the tenant-wide limit; quotas are each checked.
+5. Return a decision and a **trace** naming every rule that ran and what it did. A condition that cannot be evaluated denies instead of silently allowing.
 
-The same rules run in Python (the server's decision) and in the browser (admin previews). A shared file of example rules and expected results runs against both evaluators in the pipeline, so they can never disagree silently.
+The same rules run in Python (the server's decision) and in the browser (admin impact checks). A shared file of example rules and expected results runs against both evaluators in the pipeline, so they can never disagree silently.
+
+### Storing and publishing
+
+A tenant's rules are **one rule set with a version**. `PUT /rules` publishes the whole set with `baseVersion` (stale → `STALE_VERSION`); `GET /rules/versions` and `GET /rules/versions/{v}` show history. Each booking records the rule set version it was checked against, so rolling back is publishing an older set again.
 
 ### Limits
 
-- No loops, no external calls inside conditions, and a cap on rules per stage. Anything beyond that is an extension.
-- AI-written rules return rule JSON, which is validated against the rule schema, previewed, and published by a person. The model never publishes.
+- No loops, no external calls inside conditions, and at most 200 rules per set. Anything beyond that is an extension.
+- AI-written rules return rule JSON, which is validated against the rule schema, checked for impact, and published by a person. The model never publishes.
 
 
 ---
@@ -805,14 +828,18 @@ Each module has:
 
 ### Auth
 
-Users sign in through our existing auth service, which issues JWTs. The core never handles passwords.
+The core signs people in itself (decision D-003): module `modules/identity`, endpoints under `/api/v1/auth/`. It issues JWTs; every other endpoint only verifies them, so the rest of the core does not care who issued a token.
 
-- **Verify every token:** signature, `exp`, `iss`, `aud`. Prefer asymmetric keys (RS256 or ES256) from the auth service's JWKS endpoint. With a shared secret (HS256), keep it in the server's `.env` and plan a move to asymmetric keys.
-- **Map the user:** `sub` maps to a core user, created on first sight from the token's claims.
+- **Email + password.** Hashed with Django's PBKDF2 hasher, checked by Django's password validators (8+ characters, not common, not all digits). Passwords and tokens are never stored in clear: refresh tokens and emailed links are stored as SHA-256 hashes.
+- **Tokens.** A short access token (15 minutes, `AUTH_ACCESS_TTL_SECONDS`) and a refresh token (30 days) that works once: `/auth/refresh` returns a new pair. Reusing an already used refresh token ends that whole session (it has probably leaked). Logout, password change and password reset end sessions too.
+- **Brute force.** Unknown email and wrong password get the same 401. After 5 wrong passwords the account locks for 15 minutes. Sign-in endpoints are rate-limited per client address (`AUTH_RATE`).
+- **Accounts.** Members and guests register themselves (`/auth/register`). Staff and admins are invited (`POST /members/invite`); the worker emails a one-time link, and `/auth/invitations/accept` sets the password and activates the membership. An address with a pending invitation cannot register: the link is the way in.
+- **Guest (no-account) booking.** `/auth/guest` gives a short-lived access token (2 hours, no refresh token) for a new member with the `guest` role in one tenant, unless the tenant turned guests off (`settings.guestBooking`). There is still no unauthenticated path to the booking API.
+- **Verify every token:** signature, `exp`, `iss`, `aud`, in one `AuthAdapter` class. Tokens are HS256 with `JWT_SECRET` from the server's `.env`; plan a move to asymmetric keys (RS256) with a JWKS endpoint before products verify tokens themselves. An external identity provider can still be plugged in through `JWT_JWKS_URL`.
+- **Map the user:** `sub` maps to a core user. `GET /me/tenants` lists the person's tenants (an RLS policy allows reading one's own memberships only while no tenant is active).
 - **Tenant and role come from the core:** the user's membership in the tenant named by `X-Tenant-Id`. One person can belong to several tenants.
 - **Roles per tenant:** `owner`, `admin`, `staff`, `member`, `guest`; optionally scoped to a site.
-- **Guest (no-account) booking:** a person who books without registering still needs a token — the auth service issues a short-lived JWT for them (minimal claims, no password) the same way it does for a registered sign-in. The core maps it to a core user on first sight exactly as any other token, tagged with the `guest` role. The core never has an unauthenticated path; "no account" is handled upstream by the auth service, not by relaxing the core's auth requirement.
-- **Behind an adapter:** token verification sits behind one `AuthAdapter` class, so changing providers touches one place.
+- **Email.** Invitation and reset emails are sent after commit through Django's mail backend: console locally (the worker or API log), SMTP on servers (`EMAIL_*`).
 - **Service tokens** for product backends (after December) are JWTs with a `scope` claim.
 
 ### Engine
@@ -991,4 +1018,5 @@ Every decision that affects more than one person is recorded here, in the same m
 | ID | Date | Decision | Why | Rejected |
 | --- | --- | --- | --- | --- |
 | D-001 | 2026-11-02 | Frontend source files (components, hooks, utils) use kebab-case filenames, e.g. `booking-card.tsx`, `use-booking-calendar-data.ts`. | The `ui` package's shadcn-added and hand-built components were already kebab-case; every other package and both apps' features were PascalCase/camelCase, so the two styles sat side by side in the same tree. | Keeping PascalCase for components and camelCase for hooks/utils (the pre-existing majority) — rejected because it kept `web/packages/ui` as a permanent exception rather than resolving it. |
+| D-003 | 2026-11-04 | **Proposed, waiting for the lead.** The core signs people in itself: email + password, short JWT access tokens with rotating refresh tokens, invitation links, guest tokens (module `modules/identity`, `/api/v1/auth/*`). Every other endpoint keeps only verifying JWTs. Changes `backend.md` "Auth"; `architecture.md` and `operations.md` still name an external auth service. | There is no existing auth service to rely on: the system must have its own sign-in. Keeping verification behind `AuthAdapter` means an external provider can still be plugged in later (`JWT_JWKS_URL`). | A separate auth service in this repository: cleaner split, but one more thing to deploy and run for the demo. Social login / SSO: later, as another way to obtain the same tokens. |
 

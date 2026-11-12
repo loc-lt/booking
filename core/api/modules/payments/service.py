@@ -44,9 +44,13 @@ MANUAL = "manual"
 # ---------- price (pipeline step 6) ----------
 
 
-def quote(*, policy_body: dict[str, Any], minutes: int) -> tuple[int, dict[str, Any]]:
-    """(amount in minor units, breakdown stored on the booking). Free when not upfront."""
-    if not policy_body.get("requires_payment"):
+def quote(
+    *, policy_body: dict[str, Any], minutes: int, rule_requires: bool = False
+) -> tuple[int, dict[str, Any]]:
+    """(amount in minor units, breakdown stored on the booking). Free unless the type is
+    paid (`payment.mode: upfront`) or a require_payment rule matched; either way the price is
+    the resource type's own (`flowConfig.payment.amountMinor`)."""
+    if not (policy_body.get("requires_payment") or rule_requires):
         return 0, {}
     price = policy_body.get("price") or {"amount_minor": 0, "per": "booking"}
     unit = int(price["amount_minor"])
@@ -56,8 +60,10 @@ def quote(*, policy_body: dict[str, Any], minutes: int) -> tuple[int, dict[str, 
     return unit, {"per": "booking", "unitAmountMinor": unit}
 
 
-def payment_required(*, policy_body: dict[str, Any], amount_minor: int) -> bool:
-    return bool(policy_body.get("requires_payment")) and amount_minor > 0
+def payment_required(
+    *, policy_body: dict[str, Any], amount_minor: int, rule_requires: bool = False
+) -> bool:
+    return bool(policy_body.get("requires_payment") or rule_requires) and amount_minor > 0
 
 
 # ---------- status moves ----------

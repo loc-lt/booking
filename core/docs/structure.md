@@ -112,7 +112,7 @@ Module-specific files elsewhere: `config/policy.py` (the JSON Schema of a policy
 two-way mapping with the contract's `flowConfig`, units in seconds), `config/fields.py`
 (`check_definitions`, `compile_schema`, `check_values`), `rules/jsonlogic.py` (`evaluate`,
 `check`: the JSONLogic subset, tested against the shared example file), `rules/engine.py`
-(`evaluate_stage` returns a `Decision` with a trace), `events/service.py` (`emit_event`,
+(`evaluate_rules` returns a `Decision` with a trace), `events/service.py` (`emit_event`,
 `subscribe`, `relay_batch`), `identity/service.py` (`register`, `login`, `refresh`, `logout`,
 `change_password`, `forgot_password`, `reset_password`, `send_invitation`,
 `accept_invitation`, `guest`, `tenants_of`; tokens and links stored only as SHA-256 hashes).

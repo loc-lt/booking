@@ -35,7 +35,7 @@ Read these from the shared folder; they are owned by the lead and both roles.
 | [`docs/backend.md`](../../docs/backend.md) | Always, first | The rules every backend change follows: one service call per route, one transaction, `transition()` only, tests with the code. Owned by the backend engineers. **Its "Structure", "Libraries" and table list still describe the Flask plan; decision D-002 updates them** ([open-decisions.md](open-decisions.md)). |
 | [`docs/api.md`](../../docs/api.md) | Any endpoint | Naming, pagination, headers, the error codes, the contract workflow |
 | [`docs/domain/booking.md`](../../docs/domain/booking.md) | Booking features | The seven pipeline steps, the nine statuses, the allowed moves, payment as a policy |
-| [`docs/domain/rules.md`](../../docs/domain/rules.md) | Rules | Scope, stage, condition, effect, priority; evaluation order; the trace |
+| [`docs/domain/rules.md`](../../docs/domain/rules.md) | Rules | Scope, condition, consequence, limit, priority; evaluation order; the trace |
 | [`docs/domain/configuration.md`](../../docs/domain/configuration.md) | Settings, custom fields | Versioned config, field scopes and types, type changes as migrations |
 | [`docs/domain/events.md`](../../docs/domain/events.md) | Anything that reacts to a change | The outbox, what an event carries, the catalogue |
 | [`docs/core-boundaries.md`](../../docs/core-boundaries.md) | Every change | No product or customer logic in the core; the three-customer rule |

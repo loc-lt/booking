@@ -1783,9 +1783,9 @@ paths:
       operationId: publishRuleSet
       summary: Publish a new rule set
       description: >
-        Replaces every rule with a new version. Each rule is checked first (id, stage,
-        scope target exists, JSONLogic operators, effect fits the stage); errors come back
-        per rule. Bookings keep the rule set version they were checked against.
+        Replaces every rule with a new version. Each rule is checked first (id, consequence,
+        scope target exists, JSONLogic operators, limit fits the consequence); errors come
+        back per rule. Bookings keep the rule set version they were checked against.
       tags: [rules]
       parameters:
         - $ref: "#/components/parameters/TenantId"
@@ -3193,12 +3193,10 @@ components:
           $ref: "#/components/schemas/AppliedConfig"
         trace:
           type: array
-          description: Every rule that ran, by stage, and what it did.
+          description: Every rule that ran, in evaluation order, and what it did.
           items:
             type: object
             properties:
-              stage:
-                type: string
               ruleId:
                 type: string
               matched:
@@ -3397,52 +3395,78 @@ components:
             items:
               type: string
 
-    RuleEffect:
+    RuleLimit:
       type: object
       required: [type]
       description: >
-        deny (any stage) | allowed_groups {groups} (eligibility) | max_duration {minutes},
-        advance_window {days}, quota {per: day|week, maxBookings?, maxMinutes?} (limits) |
-        require_approval (approval).
+        Only on deny rules, for a number the console and the denial message can show without
+        reading JSONLogic. max_duration {minutes} | max_advance {days} |
+        quota {per: day|week, maxBookings?, maxMinutes?}. For max_duration and max_advance the
+        most specific matching scope wins (a room may allow longer than the tenant).
       properties:
         type:
           type: string
-          enum: [deny, allowed_groups, max_duration, advance_window, quota, require_approval]
-      additionalProperties: true
+          enum: [max_duration, max_advance, quota]
+        minutes:
+          type: integer
+          minimum: 0
+        days:
+          type: integer
+          minimum: 0
+        per:
+          type: string
+          enum: [day, week]
+        maxBookings:
+          type: integer
+          minimum: 0
+        maxMinutes:
+          type: integer
+          minimum: 0
+      additionalProperties: false
 
     Rule:
       type: object
-      description: Example docs/examples/rule.json.
-      required: [id, stage, effect]
+      description: >
+        Example docs/examples/rule.json. `when` decides whether a rule applies, `priority`
+        the order, `consequence` what happens. A deny rule with a `limit` denies only when
+        the limit is exceeded.
+      required: [id, consequence]
       properties:
         id:
           type: string
           pattern: "^[a-z0-9][a-z0-9_-]{0,62}$"
-        name:
+          description: Lower-case letters, digits, - and _; a UUID fits.
+        label:
           type: string
         scope:
           type: object
-          description: "{} = whole tenant, or one of siteId, resourceType (key), resourceId."
+          description: "{} = whole tenant, or one of siteId, resourceTypeId, resourceId."
           properties:
             siteId:
               $ref: "#/components/schemas/Uuid"
-            resourceType:
-              type: string
+            resourceTypeId:
+              $ref: "#/components/schemas/Uuid"
             resourceId:
               $ref: "#/components/schemas/Uuid"
-        stage:
-          type: string
-          enum: [eligibility, limits, approval]
+          additionalProperties: false
         priority:
           type: integer
           default: 0
         when:
-          description: JSONLogic over booking, resource, user, user.groups, time, usage. Absent = always.
-        effect:
-          $ref: "#/components/schemas/RuleEffect"
+          description: JSONLogic over booking, resource, user, user.roles, time, usage. Absent = always.
+        consequence:
+          type: string
+          enum: [deny, require_approval, require_payment]
+          description: >
+            deny blocks the booking. require_approval and require_payment only ever switch
+            approval or payment on, on top of the resource type's flowConfig; the price stays
+            the type's flowConfig.payment.amountMinor. A require_payment rule scoped to a
+            resource type or resource without a price is rejected at publish.
+        limit:
+          $ref: "#/components/schemas/RuleLimit"
         message:
           type: string
-          description: Shown to the member when this rule says no. Defaults to `name`.
+          description: Shown to the member when this rule says no. Defaults to `label`.
         enabled:
           type: boolean
           default: true

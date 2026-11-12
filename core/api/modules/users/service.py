@@ -538,7 +538,7 @@ def membership_exists(*, tenant_id: UUID, membership_id: UUID) -> bool:
 
 
 def role_codes_of(*, membership_id: UUID) -> list[str]:
-    """Role codes of a member, used as `user.groups` in the rule context."""
+    """Role codes of a member, used as `user.roles` in the rule context."""
     return sorted(
         set(
             MembershipRole.objects.filter(membership_id=membership_id).values_list(

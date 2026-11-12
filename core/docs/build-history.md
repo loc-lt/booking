@@ -117,6 +117,7 @@ the whole set (no drafts), checked at publish against the fixed context and effe
 `rules/jsonlogic.py` is a small evaluator (no library) tested against the shared example
 `docs/examples/rule.json`; `rules/engine.py` is pure. The pipeline's steps 3–5 call
 `check_rules()`; the booking stores the rule set version in `appliedConfig.ruleSetVersion`.
+(The rule object itself changed in Phase 12.)
 
 ## Phase 8: completing the contract (16 → 59 operations)
 
@@ -154,6 +155,17 @@ Dependencies moved from `requirements*.txt` to `pyproject.toml` + a committed `u
 `dev.py`, mounts the source into the containers with `gunicorn --reload` and
 `run_worker --reload`, so an edit no longer needs a rebuild.
 
+## Phase 12: the second rule shape (12/11)
+
+The frontend's drift report (pass 2, 9 Nov) proposed keeping the whole-set publish and
+changing only the rule object. Adopted: `stage` and `effect` gave way to `consequence`
+(`deny`, `require_approval`, and the new `require_payment`) plus an optional `limit` on deny
+rules; `name` → `label`; `scope.resourceType` (a key) → `scope.resourceTypeId`;
+`user.groups` → `user.roles`. `rules/engine.py` evaluates in one pass (`evaluate_rules`).
+Two things were kept against the proposal: the more specific scope still wins for duration
+and advance limits, and `flowConfig.limits.maxDurationMinutes` stays on the resource type.
+Migration `rules/0003` rewrote the stored rule sets.
+
 ## What changed from the plan, and why
 
 | Planned | Built | Why |
@@ -168,3 +180,4 @@ Dependencies moved from `requirements*.txt` to `pyproject.toml` + a committed `u
 | 24 tables | 28 | `rule_set_versions` and the three sign-in tables |
 | Payments after the demo | Built, with a mock gateway | The lifecycle's payment hook could not be tested without it |
 | `requirements*.txt` | `pyproject.toml` + `uv.lock` | A lock file, and the tool the team chose (Phase 11) |
+| Rules by stage and effect | One pass, `consequence` + `limit` | Eligibility and limits both denied; the frontend's proposal (Phase 12) |

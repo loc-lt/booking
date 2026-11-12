@@ -68,7 +68,7 @@ Read each from its pure file to its service.
 | Custom fields | `modules/config/fields.py` | `config/service.py: validate_values, add_fields, archive_field`; `config/models.py` | Why `pattern` instead of `format`? What does a record's `schema_id` point to and why does it never change? |
 | Policies and versions | `modules/config/policy.py` | `config/service.py: publish_body`; `resources/service.py: update_flow_config, restore_policy_version` | Where does `STALE_VERSION` come from? Why is restore a new version? |
 | Availability | `modules/availability/service.py: open_intervals, _subtract, free_slots` | `availability/search.py`; `availability/models.py` | Why are hours stored in local time while everything else is UTC? Why is `search.py` outside `service.py`? |
-| Rules | `modules/rules/jsonlogic.py`, then `rules/engine.py` | `rules/service.py: check_rules, publish`; `docs/examples/rule.json` | How does "deny beats allow, specific scope wins" appear in `evaluate_stage()`? Where is the trace built? |
+| Rules | `modules/rules/jsonlogic.py`, then `rules/engine.py` | `rules/service.py: check_rules, publish`; `docs/examples/rule.json` | How does "deny beats allow, specific scope wins" appear in `evaluate_rules()`? Where is the trace built? Why can a rule switch payment on but never off? |
 | Payments | `modules/payments/service.py: quote, start_payment, record_webhook, refund_for` | `payments/views.py: PaymentWebhookView` | Why is the gateway message stored *before* it is checked? How does the tenant get set for a request with no JWT? |
 
 ## Stop 5: events, worker, timers (15 min)

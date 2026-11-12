@@ -1,8 +1,10 @@
 """Public interface of the booking module: the pipeline and the lifecycle actions.
 
 create_booking() runs the seven fixed steps of docs/domain/booking.md:
-  1 validate request   2 availability   3 eligibility   4 limits   5 approval   6 price
+  1 validate request   2 availability   3-5 rules and the type's limits   6 price
   7 save and start the lifecycle
+Rules run in one pass (docs/domain/rules.md): a deny stops the booking; require_approval and
+require_payment add to what the resource type's flowConfig already asks for.
 Steps 1-6 only decide (evaluate(), also used by preview_booking() as a dry run); only
 step 7 writes.
 """
@@ -110,11 +112,12 @@ def _rule_context(
     resource: Any,
     resource_type_key: str,
     member_id: UUID,
-    groups: list[str],
+    roles: list[str],
     tz: ZoneInfo,
     now: datetime,
 ) -> dict[str, Any]:
-    """The fixed rule context (docs/domain/rules.md): booking, resource, user, time, usage."""
+    """The fixed rule context (docs/domain/rules.md): booking, resource, user, time, usage.
+    `user.roles` holds the member's role codes in this tenant."""
     local_start = req.start.astimezone(tz)
     return {
         "booking": {
@@ -127,10 +130,11 @@ def _rule_context(
         "resource": {
             "id": str(resource.id),
             "type": resource_type_key,
+            "typeId": str(resource.resource_type_id),
             "siteId": str(resource.location_id),
             "customFieldValues": resource.attributes,
         },
-        "user": {"id": str(member_id), "groups": groups},
+        "user": {"id": str(member_id), "roles": roles},
         "time": {
             "now": now.isoformat(),
             "weekday": local_start.weekday(),
@@ -197,6 +201,7 @@ class Evaluation:
     schema_id: UUID | None
     rule_set_version: int
     needs_approval: bool = False
+    rule_requires_payment: bool = False
     amount_minor: int = 0
     price_breakdown: dict[str, Any] = field(default_factory=dict)
     currency: str = "VND"
@@ -216,7 +221,9 @@ class Evaluation:
     @property
     def requires_payment(self) -> bool:
         return payments.payment_required(
-            policy_body=self.policy.body, amount_minor=self.amount_minor
+            policy_body=self.policy.body,
+            amount_minor=self.amount_minor,
+            rule_requires=self.rule_requires_payment,
         )
 
     @property
@@ -253,7 +260,7 @@ def evaluate(*, access: Access, req: BookingRequest, now: datetime) -> Evaluatio
     policy = config.get_policy(resource_type.current_policy_version_id)
     body = policy.body
     rule_list, rule_set_version = rules.published_rules(
-        location_id=location.id, resource_type_key=resource_type.code, resource_id=resource.id
+        location_id=location.id, resource_type_id=resource_type.id, resource_id=resource.id
     )
     ev = Evaluation(
         resource=resource,
@@ -276,37 +283,30 @@ def evaluate(*, access: Access, req: BookingRequest, now: datetime) -> Evaluatio
         ev.denied = [{"ruleId": "availability.hours", "message": "Closed at this time."}]
         return ev
 
-    # 3-5. Rules by stage; the first stage that says no stops the pipeline.
+    # 3-5. Rules, one pass, plus the resource type's own limits.
     ctx = _rule_context(
         req=req,
         resource=resource,
         resource_type_key=resource_type.code,
         member_id=member_id,
-        groups=users.role_codes_of(membership_id=member_id),
+        roles=users.role_codes_of(membership_id=member_id),
         tz=tz,
         now=now,
     )
-    eligibility = rules.decide(rule_list, "eligibility", ctx)
-    ev.trace += [{"stage": "eligibility", **t} for t in eligibility.trace]
-    if not eligibility.allowed:
-        ev.denied = eligibility.denied
+    decision = rules.decide(rule_list, ctx)
+    ev.trace += decision.trace
+    reasons = _policy_limits(req, body, now) + decision.denied
+    if reasons:
+        ev.denied = reasons
         return ev
-    limits = rules.decide(rule_list, "limits", ctx)
-    ev.trace += [{"stage": "limits", **t} for t in limits.trace]
-    limit_reasons = _policy_limits(req, body, now) + limits.denied
-    if limit_reasons:
-        ev.denied = limit_reasons
-        return ev
-    approval = rules.decide(rule_list, "approval", ctx)
-    ev.trace += [{"stage": "approval", **t} for t in approval.trace]
-    if not approval.allowed:
-        ev.denied = approval.denied
-        return ev
-    ev.needs_approval = bool(body["requires_approval"] or approval.require_approval)
+    ev.needs_approval = bool(body["requires_approval"] or decision.require_approval)
+    ev.rule_requires_payment = decision.require_payment
 
     # 6. Price.
     minutes = int((req.end - req.start).total_seconds() // 60)
-    ev.amount_minor, ev.price_breakdown = payments.quote(policy_body=body, minutes=minutes)
+    ev.amount_minor, ev.price_breakdown = payments.quote(
+        policy_body=body, minutes=minutes, rule_requires=ev.rule_requires_payment
+    )
     return ev
 
 

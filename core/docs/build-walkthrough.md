@@ -329,10 +329,11 @@ Tests: `test_worker.py`, `test_flow_end.py`.
 | --- | --- |
 | `models.py` | `RuleSetVersion`: every publish is an immutable snapshot of the tenant's whole rule set (no drafts). The one table the 24-table design did not have. |
 | `jsonlogic.py` | A small JSONLogic evaluator (`evaluate`, `check`), no library, tested against the shared example `docs/examples/rule.json`. |
-| `engine.py` | `evaluate_stage()`: pure evaluation of the rules for one pipeline stage, returning a `Decision` with a trace. Deny beats allow. No database access, so it is tested like a function. |
-| `service.py` | `publish()` (checked against the fixed context and effect list, with `baseVersion`), `current_rule_set()`, versions, `check_rules()`: what the booking pipeline's steps 3–5 call. The booking stores the version it was checked against in `appliedConfig.ruleSetVersion`. |
+| `engine.py` | `evaluate_rules()`: pure evaluation of the rules in one pass, returning a `Decision` (denied reasons, `require_approval`, `require_payment`) with a trace. Deny beats allow; for duration and advance limits the more specific scope wins. No database access, so it is tested like a function. (Until 12 Nov 2026 it was `evaluate_stage()`, one call per stage; see build-history, Phase 12.) |
+| `service.py` | `publish()` (checked with `check_rules()`: id, scope target exists, JSONLogic, consequence and limit, a price for scoped `require_payment`; with `baseVersion`), `current_rule_set()`, versions, `published_rules()` and `decide()`: what the booking pipeline's steps 3–5 call. The booking stores the version it was checked against in `appliedConfig.ruleSetVersion`. |
 | `views.py`, `urls.py` | `/rules`, `/rules/versions`, `/rules/versions/{v}`. |
 | `migrations/0001_initial.py`, `0002_db_rules.py` | Table and RLS. |
+| `migrations/0003_rule_shape_v2.py` | Phase 12: rewrites stored rule sets to the second shape, tenant by tenant (the app role has no `BYPASSRLS`). |
 
 Tests: `test_rules_engine.py`, `test_rules_api.py`.
 

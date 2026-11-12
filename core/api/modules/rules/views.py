@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from kernel import permissions as perms
 from kernel.access import TenantAPIView, require_perm
 from kernel.errors import NotFound
+from modules.config import service as config
 from modules.resources import service as resources
 from modules.rules import service
 from modules.rules.models import RuleSetVersion
@@ -49,8 +50,19 @@ def _exists(check: Any) -> Any:
     return run
 
 
-def _type_key_exists(key: str) -> bool:
-    return resources.list_resource_types_qs().filter(code=key).exists()
+def _priced(scope_key: str, value: str) -> bool:
+    """Does this resource type (or this resource's type) have a price to charge?"""
+    try:
+        if scope_key == "resourceId":
+            resource_type = resources.get_resource(UUID(value)).resource_type
+        else:
+            resource_type = resources.get_resource_type(UUID(value))
+    except (NotFound, ValueError):
+        return False
+    if resource_type.current_policy_version_id is None:
+        return False
+    body = config.get_policy(resource_type.current_policy_version_id).body
+    return int((body.get("price") or {}).get("amount_minor", 0)) > 0
 
 
 class RuleSetView(TenantAPIView):
@@ -71,8 +83,9 @@ class RuleSetView(TenantAPIView):
             note=d.get("note") or None,
             membership_id=request.access.membership_id,
             site_exists=_exists(lambda v: resources.get_location(UUID(v))),
-            type_key_exists=_type_key_exists,
+            type_exists=_exists(lambda v: resources.get_resource_type(UUID(v))),
             resource_exists=_exists(lambda v: resources.get_resource(UUID(v))),
+            priced=_priced,
         )
         return Response(rule_set_json(row))
 

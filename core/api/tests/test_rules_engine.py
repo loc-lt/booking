@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from modules.rules.engine import Rule, evaluate_stage
+from modules.rules.engine import Rule, evaluate_rules
 from modules.rules.jsonlogic import JsonLogicError, evaluate
 
 EXAMPLE_RULE = Path(__file__).resolve().parents[3] / "docs" / "examples" / "rule.json"
@@ -19,7 +19,7 @@ EXAMPLE_RULE = Path(__file__).resolve().parents[3] / "docs" / "examples" / "rule
         ({"===": [1, "1"]}, {}, False),
         ({"var": "a.b"}, {"a": {"b": 3}}, 3),
         ({"var": ["missing", 7]}, {}, 7),
-        ({"in": ["guest", {"var": "user.groups"}]}, {"user": {"groups": ["guest"]}}, True),
+        ({"in": ["guest", {"var": "user.roles"}]}, {"user": {"roles": ["guest"]}}, True),
         ({"and": [True, []]}, {}, []),
         ({"or": [False, 0, "x"]}, {}, "x"),
         ({"!": [[]]}, {}, True),
@@ -42,10 +42,10 @@ def test_unknown_operator_raises():
         evaluate({"eval": ["import os"]}, {})
 
 
-def _ctx(groups=("member",), minutes=60, days=1):
+def _ctx(roles=("member",), minutes=60, days=1):
     return {
         "booking": {"durationMinutes": minutes, "startsInDays": days},
-        "user": {"groups": list(groups)},
+        "user": {"roles": list(roles)},
     }
 
 
@@ -54,64 +54,84 @@ def test_shared_example_rule():
     raw = json.loads(EXAMPLE_RULE.read_text())
     rule = Rule(
         id=raw["id"],
-        stage=raw["stage"],
         scope="resource_type",
         when=raw["when"],
-        effect=raw["effect"],
+        consequence=raw["consequence"],
+        limit=raw["limit"],
         priority=raw["priority"],
-        message=raw["name"],
+        message=raw["label"],
     )
-    assert evaluate_stage([rule], "limits", _ctx(groups=["guest"], minutes=180)).denied == [
+    assert evaluate_rules([rule], _ctx(roles=["guest"], minutes=180)).denied == [
         {"ruleId": "guests-max-2h", "message": "Guests book at most 2 hours"}
     ]
-    assert evaluate_stage([rule], "limits", _ctx(groups=["guest"], minutes=120)).allowed
-    assert evaluate_stage([rule], "limits", _ctx(groups=["member"], minutes=180)).allowed
+    assert evaluate_rules([rule], _ctx(roles=["guest"], minutes=120)).allowed
+    assert evaluate_rules([rule], _ctx(roles=["member"], minutes=180)).allowed
 
 
 def test_deny_beats_allow_and_trace_names_every_rule():
     rules = [
+        # "Only members may book", written as a deny on everyone else.
         Rule(
-            "allow-members",
-            "eligibility",
+            "members-only",
             "tenant",
-            None,
-            {"type": "allowed_groups", "groups": ["member"]},
+            {"!": [{"in": ["member", {"var": "user.roles"}]}]},
+            "deny",
         ),
-        Rule(
-            "weekend-off", "eligibility", "site", {"==": [1, 1]}, {"type": "deny"}, message="Closed"
-        ),
-        Rule("never", "eligibility", "resource", {"==": [1, 2]}, {"type": "deny"}),
+        Rule("weekend-off", "site", {"==": [1, 1]}, "deny", message="Closed"),
+        Rule("never", "resource", {"==": [1, 2]}, "deny"),
     ]
-    decision = evaluate_stage(rules, "eligibility", _ctx())
+    decision = evaluate_rules(rules, _ctx())
     assert decision.denied == [{"ruleId": "weekend-off", "message": "Closed"}]
     assert {t["ruleId"]: t["result"] for t in decision.trace} == {
-        "allow-members": "allowed",
+        "members-only": "skipped",
         "weekend-off": "denied",
         "never": "skipped",
     }
+    assert evaluate_rules(rules[:1], _ctx(roles=["guest"])).denied[0]["ruleId"] == "members-only"
 
 
 def test_more_specific_scope_wins_for_limits():
     rules = [
-        Rule("tenant-4h", "limits", "tenant", None, {"type": "max_duration", "minutes": 240}),
-        Rule("room-1h", "limits", "resource", None, {"type": "max_duration", "minutes": 60}),
+        Rule("tenant-1h", "tenant", None, "deny", {"type": "max_duration", "minutes": 60}),
+        Rule("room-4h", "resource", None, "deny", {"type": "max_duration", "minutes": 240}),
     ]
-    assert evaluate_stage(rules, "limits", _ctx(minutes=90)).denied[0]["ruleId"] == "room-1h"
-    assert evaluate_stage(rules, "limits", _ctx(minutes=60)).allowed
+    # The room allows longer than the tenant: the room's limit applies.
+    assert evaluate_rules(rules, _ctx(minutes=180)).allowed
+    assert evaluate_rules(rules, _ctx(minutes=300)).denied[0]["ruleId"] == "room-4h"
+    advance = [Rule("a-week", "tenant", None, "deny", {"type": "max_advance", "days": 7})]
+    assert evaluate_rules(advance, _ctx(days=7)).allowed
+    assert evaluate_rules(advance, _ctx(days=8)).denied[0]["ruleId"] == "a-week"
 
 
-def test_require_approval_and_broken_conditions():
+def test_quota_limit_counts_usage():
+    rule = Rule(
+        "two-a-day", "tenant", None, "deny", {"type": "quota", "per": "day", "maxBookings": 2}
+    )
+    ctx = {**_ctx(), "usage": {"day": {"bookings": 2, "minutes": 120}}}
+    assert evaluate_rules([rule], ctx).denied[0]["ruleId"] == "two-a-day"
+    ctx["usage"]["day"]["bookings"] = 1
+    assert evaluate_rules([rule], ctx).allowed
+
+
+def test_require_approval_require_payment_and_broken_conditions():
     rules = [
         Rule(
-            "big-rooms",
-            "approval",
+            "long-needs-approval",
             "resource_type",
             {">": [{"var": "booking.durationMinutes"}, 30]},
-            {"type": "require_approval"},
+            "require_approval",
         ),
-        Rule("broken", "approval", "tenant", {"nope": [1]}, {"type": "require_approval"}),
+        Rule(
+            "outsiders-pay",
+            "tenant",
+            {"!": [{"in": ["staff", {"var": "user.roles"}]}]},
+            "require_payment",
+        ),
     ]
-    decision = evaluate_stage(rules, "approval", _ctx(minutes=60))
-    assert decision.require_approval is True
+    member = evaluate_rules(rules, _ctx(minutes=60))
+    assert (member.require_approval, member.require_payment, member.allowed) == (True, True, True)
+    staff = evaluate_rules(rules, _ctx(roles=["staff"], minutes=15))
+    assert (staff.require_approval, staff.require_payment) == (False, False)
+    broken = evaluate_rules([Rule("broken", "tenant", {"nope": [1]}, "require_approval")], _ctx())
     # A rule that can't be evaluated denies instead of silently allowing.
-    assert decision.denied[0]["ruleId"] == "broken"
+    assert broken.denied[0]["ruleId"] == "broken"

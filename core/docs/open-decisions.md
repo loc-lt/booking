@@ -22,8 +22,24 @@ proposal and this page is its record. When one is approved: update the shared do
 | 13 | **D-003: the core signs people in** (`modules/identity`, `/auth/*`, three tables without RLS). Proposed in `docs/decisions.md`; `docs/backend.md` "Auth" already rewritten. HS256 now; RS256 + JWKS before products verify tokens themselves. | `docs/architecture.md` ("Auth" row, "How products use the core"), `docs/operations.md` ("Outside services"), `docs/glossary.md` ("Guest") | Lead |
 | 14 | **Two non-atomic views** (`/auth/login`, `/auth/refresh`) commit before answering 401, so the failed-login counter and the revocation of a reused token survive. | `docs/backend.md` ("Rules": one transaction per request) | Backend engineers |
 | 15 | **Refunds are recorded by whoever has `payment.refund`**; the `staff` system role has `payment.mark_paid` but not `payment.refund`, so the desk cannot settle a cash refund. Either give `staff` the permission or keep it for owners/admins. | `docs/backend.md` (roles), `users/constants.py` | Backend engineers, product owner |
+| 16 | **Second rule shape** (FE drift report pass 2, adopted 12 Nov): `consequence` (`deny`, `require_approval`, `require_payment`) + optional `limit` instead of `stage` + `effect`; `label`; `scope.resourceTypeId`; `user.roles`. Kept against the proposal: the more specific scope wins for `max_duration`/`max_advance`, and `flowConfig.limits.maxDurationMinutes` stays (type-wide default, like `payment.mode`). A scoped `require_payment` without a price is rejected at publish. | `docs/domain/rules.md`, `docs/examples/rule.json`, `contracts/openapi.yaml` (done on `main`); `docs/analytics.md` `rule_published` props (frontend) | Lead + one frontend + one backend |
+
+## Backend answers to the FE drift report (pass 2, section 02)
+
+| Question | What the code does today | Backend's answer |
+| --- | --- | --- |
+| Shared capacity | Schema only: `resource_types.booking_mode` (`EXCLUSIVE` set on every type, not writable through the API), `resources.capacity`, `bookings.party_size` (not in the API), `booking_allocations` with the no-overlap guard for `EXCLUSIVE` only. `CAPACITY` is marked "after December" in `resources/models.py` | Not December. The schema was designed ahead so the feature needs no table change; availability's response shape changes when it is built, through the contract |
+| Custom-field type change | Fields can be added and archived; a key is permanent; a type never changes in place. No `attribute_history` table, no dry run | Archive and recreate is the December answer. Building the migration flow or cutting it from `configuration.md` is the lead's call |
+| Cross-field rules (`when`/`assert`) | Not built (`config/fields.py`, layer 3: "not in the contract yet") | Same as above: lead decides build or cut, together with `examples/field-definition.json` |
+| Localized labels | Stored as JSON (`{"default": text}`) in `field_definitions.label`/`help_text`; the API reads and writes plain strings | No contract change needed now; `{vi, en}` can be added later as an extra field |
+| `file` / `multi_file` | Accepted as field types; no upload endpoint, no storage | Hide them in the console until uploads exist |
 
 ## Not decisions, but known gaps
+
+- **Two contracts.** `main` (backend, 69 operations) and `master` (frontend, 35 operations,
+  GitLab default branch) split at `6b098f7` and each changed `contracts/openapi.yaml`. The
+  drift report compares the frontend's contract with the backend's design docs, not with
+  `main`. One merge request has to bring them back to one contract.
 
 - `docs/backend.md` "Contract checks: Schemathesis" and the CI job `api_contract_and_seeds`
   are stubs; the Postman scenario in the notes folder does the contract-schema checking today.

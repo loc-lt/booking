@@ -57,8 +57,8 @@ client ──► Caddy (/api/*) ──► gunicorn (app.wsgi) ──► Django m
    | --- | --- | --- |
    | 1 validate request | `config.service.validate_values()` (JSON Schema compiled from the type's booking-scoped fields); slot alignment; resource status | `422 VALIDATION_FAILED` per field, or `BOOKING_DENIED resource.status` |
    | 2 availability | `availability.service.is_open()` (site or resource hours in local time, exceptions), buffers | `BOOKING_DENIED availability.hours` |
-   | 3 eligibility, 4 limits, 5 approval | `rules.service.check_rules()` for each stage with the fixed context (`booking`, `resource`, `user`, `user.groups`, `time`, `usage`), plus the policy's own limits | `BOOKING_DENIED` with the rule ids in `reasons[]` |
-   | 6 price | `payments.service.quote()` from the policy | — |
+   | 3–5 rules and limits | `rules.service.decide()`: every enabled rule in scope, one pass, with the fixed context (`booking`, `resource`, `user`, `user.roles`, `time`, `usage`), plus the policy's own limits. `require_approval` and `require_payment` matches switch approval or payment on | `BOOKING_DENIED` with the rule ids in `reasons[]` |
+   | 6 price | `payments.service.quote()` from the policy (also when a `require_payment` rule matched) | — |
    | 7 save | below | `409 SLOT_TAKEN` |
 
    Steps 1–6 write nothing, which is why `POST /bookings/preview` can run them as a dry run.
