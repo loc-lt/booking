@@ -4,7 +4,9 @@ Requests: DRF serializers check shape only (types, required, patterns). Business
 in service.py. Responses: plain functions, so nested JSON (customFieldValues) keeps its keys.
 """
 
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from rest_framework import serializers
 
@@ -178,12 +180,19 @@ def resource_json(row: Resource) -> dict[str, Any]:
     }
 
 
+def current_offset(timezone_name: str) -> str:
+    """The zone's UTC offset right now, "+07:00". Display only: it changes across DST."""
+    raw = datetime.now(ZoneInfo(timezone_name)).strftime("%z")  # "+0700"
+    return f"{raw[:3]}:{raw[3:]}"
+
+
 def site_json(row: Location) -> dict[str, Any]:
     return {
         "id": str(row.id),
         "code": row.code,
         "name": row.name,
         "timezone": row.timezone,
+        "currentOffset": current_offset(row.timezone),
         "address": row.address,
         "status": row.status.lower(),
         "createdAt": row.created_at.isoformat(),

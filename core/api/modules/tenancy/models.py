@@ -19,7 +19,6 @@ class Tenant(models.Model):
     name = models.TextField()
     status = models.TextField(choices=TenantStatus.choices, default=TenantStatus.ACTIVE)
     default_timezone = models.TextField(default="Asia/Ho_Chi_Minh")
-    default_locale = models.TextField(default="vi")
     default_currency = models.CharField(max_length=3, default="VND")
     settings = models.JSONField(default=dict)
     created_at = models.DateTimeField(default=timezone.now)

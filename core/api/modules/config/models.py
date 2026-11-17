@@ -64,7 +64,7 @@ class FieldDefinition(TenantModel):
     """One custom field. Adding a field is an INSERT here, never an ALTER TABLE.
 
     Contract mapping: scope `resource`/`booking` -> object_code; `type` -> data_type;
-    `label`/`help` -> label/help_text as {"default": ...}; `options` and `validation` are
+    `label`/`help` -> label/help_text (plain text); `options` and `validation` are
     kept in config exactly as the contract sends them.
     """
 
@@ -77,8 +77,8 @@ class FieldDefinition(TenantModel):
         related_name="field_definitions",
     )
     key = models.TextField()
-    label = models.JSONField()
-    help_text = models.JSONField(null=True, blank=True)
+    label = models.TextField()
+    help_text = models.TextField(null=True, blank=True)
     data_type = models.TextField()
     config = models.JSONField(default=dict)
     required = models.BooleanField(default=False)

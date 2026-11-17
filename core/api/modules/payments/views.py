@@ -30,7 +30,7 @@ def refund_json(r: Refund) -> dict[str, Any]:
         "status": r.status.lower(),
         "reasonCode": r.reason_code,
         "appliedRule": r.applied_rule,
-        "requestedAt": r.requested_at.isoformat(),
+        "createdAt": r.requested_at.isoformat(),
         "completedAt": r.completed_at.isoformat() if r.completed_at else None,
     }
 
@@ -54,13 +54,16 @@ def payment_json(p: Payment) -> dict[str, Any]:
         "bookingId": str(p.booking_id),
         "status": p.status.lower(),
         "amountMinor": p.amount_minor,
-        "refundedMinor": p.refunded_minor,
+        "refundedAmountMinor": p.refunded_minor,
         "currency": p.currency,
         "gateway": p.gateway,
+        "gatewayRef": p.gateway_payment_ref,
         "method": p.method,
         "sessionId": p.gateway_session_id,
         "expiresAt": p.expires_at.isoformat() if p.expires_at else None,
         "paidAt": p.paid_at.isoformat() if p.paid_at else None,
+        "createdAt": p.created_at.isoformat(),
+        "updatedAt": p.updated_at.isoformat(),
         "refunds": [refund_json(r) for r in service.refunds_of(p.id)],
         "events": [event_json(e) for e in service.events_of(p.id)],
         "history": [
@@ -89,14 +92,14 @@ class PaymentDetailView(TenantAPIView):
         return Response(payment_json(_visible_payment(request, payment_id)))
 
 
-class MarkPaidRequest(serializers.Serializer):
+class MarkPaymentPaidRequest(serializers.Serializer):
     method = serializers.ChoiceField(choices=["cash", "card", "bank_transfer", "other"])
     note = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
 class MarkPaidView(TenantAPIView):
     def post(self, request: Request, payment_id: UUID) -> Response:
-        body = MarkPaidRequest(data=request.data)
+        body = MarkPaymentPaidRequest(data=request.data)
         body.is_valid(raise_exception=True)
         booking.mark_paid(
             access=request.access,

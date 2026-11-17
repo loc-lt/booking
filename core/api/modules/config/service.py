@@ -191,8 +191,8 @@ def _insert_fields(
             object_code=_scope_to_object(field.get("scope", "resource")),
             resource_type_id=resource_type_id,
             key=field["key"],
-            label={"default": field["label"]},
-            help_text={"default": field["help"]} if field.get("help") else None,
+            label=field["label"],
+            help_text=field.get("help") or None,
             data_type=field["type"],
             config=config,
             required=bool(field.get("required", False)),
@@ -298,13 +298,13 @@ def _publish_form(
 def _to_contract(row: FieldDefinition) -> dict[str, Any]:
     field: dict[str, Any] = {
         "key": row.key,
-        "label": row.label.get("default", ""),
+        "label": row.label,
         "type": row.data_type,
         "scope": "booking" if row.object_code == CustomObject.BOOKING else "resource",
         "required": row.required,
     }
     if row.help_text:
-        field["help"] = row.help_text.get("default", "")
+        field["help"] = row.help_text
     if row.config.get("options"):
         field["options"] = row.config["options"]
     if row.config.get("validation"):

@@ -190,7 +190,10 @@ def test_cancel_refunds_by_the_policy_and_the_desk_settles_it(world, paid_room, 
     # A week ahead: more than 24 hours before the start -> 100%.
     cancelled = world.client("member").post(f"/api/v1/bookings/{b['id']}/cancel").json()
     assert (cancelled["status"], cancelled["payment"]["status"]) == ("cancelled", "refund_pending")
-    refund = world.client("staff").get(pay_url).json()["refunds"][0]
+    payment = world.client("staff").get(pay_url).json()
+    assert {"createdAt", "updatedAt", "gatewayRef"} <= payment.keys()
+    refund = payment["refunds"][0]
+    assert "createdAt" in refund and "requestedAt" not in refund
     assert (refund["amountMinor"], refund["status"], refund["appliedRule"]["percent"]) == (
         100000,
         "pending",
@@ -201,7 +204,7 @@ def test_cancel_refunds_by_the_policy_and_the_desk_settles_it(world, paid_room, 
         == 403
     )
     settled = world.client("owner").post(f"/api/v1/refunds/{refund['id']}/mark-succeeded").json()
-    assert (settled["status"], settled["refundedMinor"]) == ("refunded", 100000)
+    assert (settled["status"], settled["refundedAmountMinor"]) == ("refunded", 100000)
 
 
 def test_late_cancel_refunds_half_through_the_gateway(world, paid_room, freeze, day):
@@ -235,7 +238,7 @@ def test_late_cancel_refunds_half_through_the_gateway(world, paid_room, freeze, 
     )
     assert done.json()["outcome"] == "applied"
     p = world.client("member").get(f"/api/v1/payments/{b['payment']['id']}").json()
-    assert (p["status"], p["refundedMinor"]) == ("partially_refunded", 50000)
+    assert (p["status"], p["refundedAmountMinor"]) == ("partially_refunded", 50000)
 
 
 def test_paid_then_approval_when_both_are_required(world, day):

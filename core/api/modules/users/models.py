@@ -22,7 +22,6 @@ class User(BaseModel):
     email = models.EmailField(null=True, blank=True)
     full_name = models.TextField(default="")
     phone = models.TextField(null=True, blank=True)
-    locale = models.TextField(null=True, blank=True)
     status = models.TextField(choices=UserStatus.choices, default=UserStatus.ACTIVE)
     last_login_at = models.DateTimeField(null=True, blank=True)
 

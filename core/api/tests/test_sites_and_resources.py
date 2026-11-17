@@ -31,6 +31,7 @@ def test_create_site_with_hours_then_book_there(world, day):
     assert site.status_code == 201, site.json()
     s = site.json()
     assert (s["code"], s["status"], s["address"]) == ("ha-noi-office", "active", {"city": "Ha Noi"})
+    assert s["currentOffset"] == "+07:00"  # Asia/Ho_Chi_Minh has no daylight saving
     assert (
         owner.post(
             "/api/v1/sites",
@@ -51,6 +52,7 @@ def test_create_site_with_hours_then_book_there(world, day):
     )
     assert hours.status_code == 200, hours.json()
     assert hours.json()["weekly"][0] == {"weekday": 0, "opens": "09:00", "closes": "11:00"}
+    assert hours.json()["inherited"] is False
     slots = _slots(world, s["id"], rt["id"], day)
     assert [x["start"][11:16] for x in slots] == ["09:00", "09:30", "10:00", "10:30"]
     assert book(world, room["id"], local(day, 9), local(day, 10)).status_code == 201
@@ -89,19 +91,19 @@ def test_resource_hours_replace_the_site_hours(world, day):
     create_resource(world, rt["id"], label="Normal room")
     owner = world.client("owner")
     url = f"/api/v1/resources/{early['id']}/hours"
-    assert owner.get(url).json()["inheritsSiteHours"] is True
+    assert owner.get(url).json()["inherited"] is True
     own = owner.put(
         url,
         {"weekly": [{"weekday": d, "opens": "06:00", "closes": "09:00"} for d in range(7)]},
         format="json",
     )
-    assert own.json()["inheritsSiteHours"] is False
+    assert own.json()["inherited"] is False
     by_start = {
         x["start"][11:16]: x["resourceIds"] for x in _slots(world, world.site_id, rt["id"], day)
     }
     assert by_start["06:00"] == [early["id"]]
     assert early["id"] not in by_start["10:00"]
-    assert owner.delete(url).json()["inheritsSiteHours"] is True
+    assert owner.delete(url).json()["inherited"] is True
 
 
 def test_block_exception_returns_affected_bookings_and_blocks_new_ones(world, day):

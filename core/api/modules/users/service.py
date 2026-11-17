@@ -68,7 +68,6 @@ def user_from_claims(claims: dict[str, Any]) -> UUID:
                 auth_subject=subject,
                 email=claims.get("email") or None,
                 full_name=claims.get("name") or "",
-                locale=claims.get("locale"),
                 last_login_at=timezone.now(),
             )
             return user.id

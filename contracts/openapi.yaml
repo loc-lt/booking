@@ -960,7 +960,7 @@ paths:
 
   /resources/{resourceId}/maintenance:
     post:
-      operationId: startResourceMaintenance
+      operationId: setResourceMaintenance
       summary: Put a resource in maintenance
       description: >
         active → maintenance. The resource disappears from availability and new bookings
@@ -1052,7 +1052,7 @@ paths:
     get:
       operationId: getResourceHours
       summary: A resource's opening hours
-      description: Its own weekly hours, or its site's when it has none (`inheritsSiteHours`).
+      description: Its own weekly hours, or its site's when it has none (`inherited`).
       tags: [sites]
       parameters:
         - $ref: "#/components/parameters/TenantId"
@@ -1063,7 +1063,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResourceHours"
+                $ref: "#/components/schemas/OpeningHours"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -1085,14 +1085,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SetHoursRequest"
+              $ref: "#/components/schemas/SetOpeningHoursRequest"
       responses:
         "200":
           description: The hours.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResourceHours"
+                $ref: "#/components/schemas/OpeningHours"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -1102,7 +1102,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationFailed"
     delete:
-      operationId: clearResourceHours
+      operationId: deleteResourceHours
       summary: Follow the site's hours again
       tags: [sites]
       parameters:
@@ -1114,7 +1114,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ResourceHours"
+                $ref: "#/components/schemas/OpeningHours"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -1240,7 +1240,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SiteHours"
+                $ref: "#/components/schemas/OpeningHours"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -1262,14 +1262,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SetHoursRequest"
+              $ref: "#/components/schemas/SetOpeningHoursRequest"
       responses:
         "200":
           description: The new hours.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SiteHours"
+                $ref: "#/components/schemas/OpeningHours"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -1345,7 +1345,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AvailabilityExceptionCreated"
+                $ref: "#/components/schemas/CreateAvailabilityExceptionResponse"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -1362,7 +1362,7 @@ paths:
       tags: [sites]
       parameters:
         - $ref: "#/components/parameters/TenantId"
-        - $ref: "#/components/parameters/ExceptionId"
+        - $ref: "#/components/parameters/AvailabilityExceptionId"
       responses:
         "204":
           description: Removed.
@@ -1858,7 +1858,7 @@ paths:
 
   /payments/reconciliation:
     get:
-      operationId: listPaymentsToReconcile
+      operationId: listPaymentsNeedingReconciliation
       summary: Gateway messages a person must look at
       description: Money for a booking that is gone, wrong amounts, unknown sessions.
       tags: [payments]
@@ -1917,7 +1917,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/MarkPaidRequest"
+              $ref: "#/components/schemas/MarkPaymentPaidRequest"
       responses:
         "200":
           description: The payment.
@@ -2131,7 +2131,7 @@ components:
       required: true
       schema:
         $ref: "#/components/schemas/Uuid"
-    ExceptionId:
+    AvailabilityExceptionId:
       name: exceptionId
       in: path
       required: true
@@ -2960,7 +2960,7 @@ components:
 
     Site:
       type: object
-      required: [id, code, name, timezone, address, status, createdAt, updatedAt]
+      required: [id, code, name, timezone, currentOffset, address, status, createdAt, updatedAt]
       properties:
         id:
           $ref: "#/components/schemas/Uuid"
@@ -2972,6 +2972,13 @@ components:
           type: string
           description: IANA name. Every local time of the site uses it.
           example: Asia/Ho_Chi_Minh
+        currentOffset:
+          type: string
+          pattern: '^[+-]\d{2}:\d{2}$'
+          example: "+07:00"
+          description: >
+            The zone's UTC offset right now, computed from `timezone`. For display only:
+            it changes across daylight saving, so never schedule from it.
         address:
           type: object
           additionalProperties: true
@@ -3022,7 +3029,7 @@ components:
           type: object
           additionalProperties: true
 
-    WeeklyHoursRange:
+    OpeningHoursRange:
       type: object
       required: [weekday, opens, closes]
       properties:
@@ -3039,7 +3046,7 @@ components:
           type: string
           pattern: "^[0-2][0-9]:[0-5][0-9]$"
 
-    SetHoursRequest:
+    SetOpeningHoursRequest:
       type: object
       required: [weekly]
       properties:
@@ -3047,41 +3054,32 @@ components:
           type: array
           description: A weekday with no range is closed.
           items:
-            $ref: "#/components/schemas/WeeklyHoursRange"
+            $ref: "#/components/schemas/OpeningHoursRange"
 
-    SiteHours:
+    OpeningHours:
       type: object
-      required: [siteId, timezone, weekly]
+      required: [weekly, inherited, timezone]
+      description: >
+        Weekly opening hours of a site or a resource, in the site's local time.
+        `siteId` is always set; `resourceId` only for a resource's hours.
       properties:
         siteId:
           $ref: "#/components/schemas/Uuid"
-        timezone:
-          type: string
-        weekly:
-          type: array
-          items:
-            $ref: "#/components/schemas/WeeklyHoursRange"
-
-    ResourceHours:
-      type: object
-      required: [resourceId, siteId, timezone, inheritsSiteHours, weekly]
-      properties:
         resourceId:
           $ref: "#/components/schemas/Uuid"
-        siteId:
-          $ref: "#/components/schemas/Uuid"
         timezone:
           type: string
-        inheritsSiteHours:
+        inherited:
           type: boolean
+          description: True only when resource hours currently come from the resource's site.
         weekly:
           type: array
           items:
-            $ref: "#/components/schemas/WeeklyHoursRange"
+            $ref: "#/components/schemas/OpeningHoursRange"
 
     AvailabilityException:
       type: object
-      required: [id, kind, start, end]
+      required: [id, kind, start, end, createdAt]
       properties:
         id:
           $ref: "#/components/schemas/Uuid"
@@ -3094,8 +3092,7 @@ components:
             - $ref: "#/components/schemas/Uuid"
           nullable: true
         kind:
-          type: string
-          enum: [block, open]
+          $ref: "#/components/schemas/AvailabilityExceptionKind"
         start:
           type: string
           format: date-time
@@ -3115,6 +3112,10 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    AvailabilityExceptionKind:
+      type: string
+      enum: [block, open]
 
     AvailabilityExceptionList:
       type: object
@@ -3138,8 +3139,7 @@ components:
         resourceId:
           $ref: "#/components/schemas/Uuid"
         kind:
-          type: string
-          enum: [block, open]
+          $ref: "#/components/schemas/AvailabilityExceptionKind"
         start:
           type: string
           format: date-time
@@ -3152,7 +3152,7 @@ components:
         note:
           type: string
 
-    AvailabilityExceptionCreated:
+    CreateAvailabilityExceptionResponse:
       type: object
       required: [exception, affectedBookings]
       properties:
@@ -3557,7 +3557,7 @@ components:
 
     PaymentSummary:
       type: object
-      required: [id, status, amountMinor, refundedMinor, currency]
+      required: [id, status, amountMinor, refundedAmountMinor, currency]
       properties:
         id:
           $ref: "#/components/schemas/Uuid"
@@ -3565,7 +3565,7 @@ components:
           $ref: "#/components/schemas/PaymentStatus"
         amountMinor:
           type: integer
-        refundedMinor:
+        refundedAmountMinor:
           type: integer
         currency:
           type: string
@@ -3576,7 +3576,7 @@ components:
 
     Refund:
       type: object
-      required: [id, paymentId, amountMinor, status, reasonCode, requestedAt]
+      required: [id, paymentId, amountMinor, status, reasonCode, createdAt]
       properties:
         id:
           $ref: "#/components/schemas/Uuid"
@@ -3585,21 +3585,25 @@ components:
         amountMinor:
           type: integer
         status:
-          type: string
-          enum: [pending, succeeded, failed]
+          $ref: "#/components/schemas/RefundStatus"
         reasonCode:
           type: string
         appliedRule:
           type: object
           nullable: true
           additionalProperties: true
-        requestedAt:
+        createdAt:
           type: string
           format: date-time
+          description: When the refund was requested.
         completedAt:
           type: string
           format: date-time
           nullable: true
+
+    RefundStatus:
+      type: string
+      enum: [pending, succeeded, failed]
 
     PaymentEvent:
       type: object
@@ -3639,12 +3643,16 @@ components:
       allOf:
         - $ref: "#/components/schemas/PaymentSummary"
         - type: object
-          required: [bookingId, gateway, refunds, events, history]
+          required: [bookingId, gateway, refunds, events, history, createdAt, updatedAt]
           properties:
             bookingId:
               $ref: "#/components/schemas/Uuid"
             gateway:
               type: string
+            gatewayRef:
+              type: string
+              nullable: true
+              description: The payment gateway's own reference for this payment, if any.
             method:
               type: string
               nullable: true
@@ -3655,6 +3663,12 @@ components:
               type: string
               format: date-time
               nullable: true
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
             refunds:
               type: array
               items:
@@ -3683,7 +3697,7 @@ components:
                     type: string
                     format: date-time
 
-    MarkPaidRequest:
+    MarkPaymentPaidRequest:
       type: object
       required: [method]
       properties:

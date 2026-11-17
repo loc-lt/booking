@@ -47,7 +47,7 @@ def payment_summary(p: Any) -> dict[str, Any] | None:
         "id": str(p.id),
         "status": p.status.lower(),
         "amountMinor": p.amount_minor,
-        "refundedMinor": p.refunded_minor,
+        "refundedAmountMinor": p.refunded_minor,
         "currency": p.currency,
         "expiresAt": p.expires_at.isoformat() if p.expires_at else None,
     }

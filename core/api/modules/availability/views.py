@@ -53,12 +53,12 @@ class HoursRangeSerializer(serializers.Serializer):
     closes = serializers.TimeField(format="%H:%M")
 
 
-class SetHoursRequest(serializers.Serializer):
+class SetOpeningHoursRequest(serializers.Serializer):
     weekly = HoursRangeSerializer(many=True, allow_empty=True)
 
 
 def _hours_body(request: Request) -> dict[int, list[tuple[time, time]]]:
-    body = SetHoursRequest(data=request.data)
+    body = SetOpeningHoursRequest(data=request.data)
     body.is_valid(raise_exception=True)
     hours: dict[int, list[tuple[time, time]]] = {}
     for r in body.validated_data["weekly"]:
@@ -79,6 +79,7 @@ class SiteHoursView(TenantAPIView):
         return {
             "siteId": str(site.id),
             "timezone": site.timezone,
+            "inherited": False,
             "weekly": _weekly_json(service.weekly_hours(location_id=site.id)),
         }
 
@@ -105,7 +106,7 @@ class ResourceHoursView(TenantAPIView):
             "resourceId": str(resource.id),
             "siteId": str(resource.location_id),
             "timezone": resource.location.timezone,
-            "inheritsSiteHours": not own,
+            "inherited": not own,
             "weekly": _weekly_json(own or service.weekly_hours(location_id=resource.location_id)),
         }
 
