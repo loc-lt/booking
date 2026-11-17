@@ -55,7 +55,7 @@ Each module has:
 | `config_versions` | Every draft and published version of settings and rules |
 | `bookings` | `during` (time range), `status`, `payment_status`, `applied_config` |
 | `booking_events` | Booking history: from, to, actor, reason |
-| `attribute_history` | Previous custom field values |
+| `attribute_history` | Previous custom field values (after December, with type conversion) |
 | `outbox` | Events waiting for delivery |
 | `scheduled_jobs` | Timers: no-shows, approval timeouts, payment-hold expiry |
 

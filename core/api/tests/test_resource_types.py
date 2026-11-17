@@ -115,8 +115,11 @@ def test_members_cannot_create_types(world):
             [{"key": "x", "label": "x", "type": "reference"}],
             "fields[0].validation.targetResourceTypeId",
         ),
+        # No upload endpoint yet, so file fields are refused (drift report pass 2, item 2.7).
+        ([{"key": "x", "label": "x", "type": "file"}], "fields[0].type"),
+        ([{"key": "x", "label": "x", "type": "multi_file"}], "fields[0].type"),
     ],
-    ids=["key", "options", "min-max", "pattern", "duplicate", "reference"],
+    ids=["key", "options", "min-max", "pattern", "duplicate", "reference", "file", "multi-file"],
 )
 def test_bad_field_definitions_fail_per_field(world, fields, field):
     response = world.client("owner").post(

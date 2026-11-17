@@ -29,10 +29,10 @@ proposal and this page is its record. When one is approved: update the shared do
 | Question | What the code does today | Backend's answer |
 | --- | --- | --- |
 | Shared capacity | Schema only: `resource_types.booking_mode` (`EXCLUSIVE` set on every type, not writable through the API), `resources.capacity`, `bookings.party_size` (not in the API), `booking_allocations` with the no-overlap guard for `EXCLUSIVE` only. `CAPACITY` is marked "after December" in `resources/models.py` | Not December. The schema was designed ahead so the feature needs no table change; availability's response shape changes when it is built, through the contract |
-| Custom-field type change | Fields can be added and archived; a key is permanent; a type never changes in place. No `attribute_history` table, no dry run | Archive and recreate is the December answer. Building the migration flow or cutting it from `configuration.md` is the lead's call |
-| Cross-field rules (`when`/`assert`) | Not built (`config/fields.py`, layer 3: "not in the contract yet") | Same as above: lead decides build or cut, together with `examples/field-definition.json` |
+| Custom-field type change | Fields can be added and archived; a key is permanent; a type never changes in place. No `attribute_history` table, no dry run | Archive and recreate is the December answer. Proposed on `main`: `configuration.md` "Changing a field's type" now describes archive and recreate; conversion moves after December. Needs the lead |
+| Cross-field rules (`when`/`assert`) | Not built (`config/fields.py`, layer 3: "not in the contract yet") | Proposed on `main`: cut from `configuration.md` and `examples/field-definition.json` together, after December. Needs the lead |
 | Localized labels | Stored as JSON (`{"default": text}`) in `field_definitions.label`/`help_text`; the API reads and writes plain strings | No contract change needed now; `{vi, en}` can be added later as an extra field |
-| `file` / `multi_file` | Accepted as field types; no upload endpoint, no storage | Hide them in the console until uploads exist |
+| `file` / `multi_file` | Kept in the `FieldType` enum, refused when a field is defined (`config/fields.py` `NOT_YET_SUPPORTED`, `VALIDATION_FAILED` on `fields[i].type`) | Console hides them; the backend refuses them too, so no client can create a field nobody can fill in. Lifted when uploads exist |
 
 ## Not decisions, but known gaps
 

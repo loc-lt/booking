@@ -1,10 +1,10 @@
 """Custom fields: definition checks, compiling to JSON Schema, checking values.
 
-Three layers (docs/domain/configuration.md, "Custom fields"):
+Two layers (docs/domain/configuration.md, "Custom fields"):
 1. The definition, in the contract's FieldDefinition format (labels, order, help).
 2. JSON Schema compiled from it. The browser (Ajv) and the server check values against the
    same schema. Formats use `pattern`, not `format`, so both sides behave the same.
-3. Cross-field rules (when/assert): not in the contract yet.
+Cross-field rules (when/assert) are after December.
 """
 
 import re
@@ -49,6 +49,10 @@ _ALLOWED_VALIDATION: dict[str, set[str]] = {
 }
 FIELD_TYPES = frozenset(_ALLOWED_VALIDATION)
 
+# In the contract's FieldType enum but refused when a field is defined: there is no upload
+# endpoint and no storage, so a value could never be filled in. Lifted when uploads exist.
+NOT_YET_SUPPORTED = frozenset({"file", "multi_file"})
+
 
 def check_definitions(fields: list[dict[str, Any]]) -> None:
     """Checks run when definitions are saved: min <= max, the pattern compiles and is
@@ -64,6 +68,8 @@ def check_definitions(fields: list[dict[str, Any]]) -> None:
     for i, field in enumerate(fields):
         key, ftype = field["key"], field["type"]
         validation = field.get("validation") or {}
+        if ftype in NOT_YET_SUPPORTED:
+            err(i, "type", f"Type {ftype} is not supported yet: there is no file upload.")
         if not KEY_PATTERN.match(key):
             err(i, "key", "Use snake_case: a-z, 0-9 and _, starting with a letter.")
         if key in RESERVED_KEYS:

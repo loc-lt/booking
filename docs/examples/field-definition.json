@@ -45,13 +45,5 @@
       "scope": "resource",
       "validation": { "targetResourceTypeId": "0193f4c2-7a3b-7c3e-8e2a-1f9b6c5d4e3a" }
     }
-  ],
-  "rules": [
-    {
-      "id": "video_conf_capacity",
-      "message": "Rooms with video conferencing need a capacity of at least 4",
-      "when": { "in": ["video_conf", { "var": "equipment" }] },
-      "assert": { ">=": [{ "var": "capacity" }, 4] }
-    }
   ]
 }

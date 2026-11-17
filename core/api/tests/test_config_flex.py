@@ -85,6 +85,17 @@ def test_archive_a_field(world):
     assert again.status_code == 422
 
 
+def test_file_fields_cannot_be_added_later_either(world):
+    rt = create_type(world)
+    response = world.client("owner").post(
+        f"/api/v1/resource-types/{rt['id']}/fields",
+        {"fields": [{"key": "contract_pdf", "label": "Contract", "type": "file"}]},
+        format="json",
+    )
+    assert response.status_code == 422
+    assert [e["field"] for e in response.json()["errors"]] == ["fields[0].type"]
+
+
 def test_limits_buffers_and_slot_size_are_settings(world, day):
     flow = {
         **FLOW_INSTANT,

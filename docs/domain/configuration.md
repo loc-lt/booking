@@ -21,9 +21,8 @@ Everything a tenant configures (resource types, custom fields, policies, rules, 
 | --- | --- | --- |
 | Field definition | "Capacity is an integer, required, 1–200" | Our own format, edited in the console |
 | Per-field validation | "Is `capacity: 250` valid?" | JSON Schema, generated from the definition |
-| Cross-field rules | "With video conferencing, capacity must be at least 4" | JSONLogic `when` / `assert` |
 
-We keep our own definition format because the console needs labels, order, help text and widgets, which JSON Schema lacks. It compiles to JSON Schema, which the browser and the server both validate against. JSON Schema runs first; cross-field rules only run if it passes. Errors come back per field. Example: [examples/field-definition.json](../examples/field-definition.json).
+We keep our own definition format because the console needs labels, order, help text and widgets, which JSON Schema lacks. It compiles to JSON Schema, which the browser and the server both validate against. Errors come back per field. Rules across several fields ("with video conferencing, capacity must be at least 4") are after December. Example: [examples/field-definition.json](../examples/field-definition.json).
 
 ### Field scope
 
@@ -34,7 +33,7 @@ Every field has a `scope`, set once when it's defined:
 | `resource` (default) | An admin, once per resource instance (e.g. a meeting room's TV type) | Read-only on the resource; never asked again at booking |
 | `booking` | The member, on every booking (e.g. number of attendees) | The booking form |
 
-A field's scope is part of its definition, like its type — changing it is a type-change-shaped edit (see below), not a free relabel.
+A field's scope is part of its definition, like its type: it never changes in place (see "Changing a field's type" below).
 
 ### Reference fields
 
@@ -56,23 +55,16 @@ A resource type can reference any other resource type, including itself. The cor
 | multi_select | array | required, options, minItems, maxItems |
 | email, url, phone | string | required |
 | reference | id | required, target type |
-| file, multi_file | file id(s) | required, max size, MIME types |
+| file, multi_file | — | Reserved: refused with `VALIDATION_FAILED` on `fields[i].type` until there is an upload endpoint |
 
 When a definition is saved: min ≤ max, the pattern compiles and is length-capped, option values are unique, keys are snake_case and unique.
 
 ## Changing a field's type
 
-A type change is a **data migration**, never a settings edit.
+A field's type and scope never change in place. To change them, the admin archives the field and adds a new one with a different key:
 
-| Change | Kind | Conversion |
-| --- | --- | --- |
-| integer → number, wider ranges | Safe | None |
-| file → multi_file, text → array, select → multi_select | Convertible | Wrap: `"a.pdf"` → `["a.pdf"]`, empty → `[]` |
-| number or boolean → text | Convertible | Stringify |
-| text → integer or date | Lossy | Parse; failures listed for manual fixing |
-| array → single value | Lossy | Keep first or join; admin must confirm |
-| Anything else | Not allowed | Create a new field instead |
+1. Archive the old field (`POST /resource-types/{id}/fields/{key}/archive`). Stored values stay on the records; new records no longer ask for it.
+2. Add the new field (`POST /resource-types/{id}/fields`). Keys are permanent, so the new field needs a new key.
+3. Existing records keep the form version they were checked against; new records are checked against the new form.
 
-The admin changes the type → a dry run converts every affected record without saving → the console shows the impact ("1,243 converted, 0 failures") → the admin confirms → a background migration runs in batches, saving old values to history → the new definition goes live only when the migration finishes.
-
-**Minimum for December:** never rewrite data on save, the converter registry with dry run, and attribute history.
+Converting stored values from one type to another (dry run, impact count, background migration, value history) is after December.

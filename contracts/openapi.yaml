@@ -2302,6 +2302,10 @@ components:
 
     FieldType:
       type: string
+      description: >
+        `file` and `multi_file` are reserved: there is no upload endpoint yet, so
+        defining a field of either type fails with `VALIDATION_FAILED` on
+        `fields[i].type`. Consoles should not offer them.
       enum:
         - text
         - long_text
